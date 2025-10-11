@@ -632,24 +632,28 @@ class _InputField extends StatelessWidget {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface, // keep background
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        // ⛔ removed border to avoid double/extra border look
       ),
       child: Row(
         children: [
           if (leading != null) ...[
-            Icon(leading, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            Icon(leading, size: 18, color: theme.colorScheme.onSurfaceVariant.withOpacity(.8)),
             const SizedBox(width: 8),
           ],
           Expanded(
             child: TextField(
               controller: controller,
               keyboardType: keyboardType,
+              style: theme.textTheme.bodyMedium, // normal input text
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
                 hintText: hint,
+                hintStyle: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                ),
               ),
             ),
           ),
@@ -676,16 +680,15 @@ class _MultilineField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface, // keep background
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        // ⛔ removed border to avoid double/extra border look
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (leading != null) ...[
             const SizedBox(height: 4),
-            Icon(leading, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            Icon(leading, size: 18, color: theme.colorScheme.onSurfaceVariant.withOpacity(.8)),
             const SizedBox(width: 8),
           ],
           Expanded(
@@ -693,10 +696,15 @@ class _MultilineField extends StatelessWidget {
               controller: controller,
               maxLines: 6,
               minLines: 3,
+              style: theme.textTheme.bodyMedium,
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
                 hintText: hint,
+                hintStyle: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                ),
               ),
             ),
           ),

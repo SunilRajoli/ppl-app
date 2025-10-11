@@ -5,8 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/providers/auth_provider.dart';
-import '../core/theme/app_theme.dart';
-import '../widgets/custom_widgets.dart';
 import '../widgets/global_top_bar.dart';
 
 class LandingScreen extends StatefulWidget {
@@ -29,6 +27,8 @@ class _LandingScreenState extends State<LandingScreen>
   final whyPplKey = GlobalKey();
 
   bool _contactOpen = false;
+  bool _termsOpen = false;
+  bool _privacyOpen = false;
 
   @override
   void initState() {
@@ -84,6 +84,14 @@ class _LandingScreenState extends State<LandingScreen>
     return isAdmin ? '/admin?tab=competitions' : '/main?tab=competitions';
   }
 
+  void _closeAllModals() {
+    setState(() {
+      _contactOpen = false;
+      _termsOpen = false;
+      _privacyOpen = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -98,6 +106,8 @@ class _LandingScreenState extends State<LandingScreen>
       NavLink(href: '#why-ppl', label: 'Why PPL', type: 'scroll'),
     ];
 
+    final anyModalOpen = _contactOpen || _termsOpen || _privacyOpen;
+
     return Scaffold(
       appBar: widget.embedded
           ? null
@@ -109,42 +119,64 @@ class _LandingScreenState extends State<LandingScreen>
               onScrollTo: _scrollToById,
               onOpenContact: () => setState(() => _contactOpen = true),
             ),
-      body: FadeTransition(
-        opacity: _fade,
-        child: ScrollConfiguration(
-          behavior: const MaterialScrollBehavior().copyWith(
-            scrollbars: false, // <-- hide Flutter scrollbars
-          ),
-          child: SingleChildScrollView(
-            controller: _scroll,
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroSection(
-                  exploreTo: exploreTo,
-                  showGetStarted: !auth.isAuthenticated,
+      body: Stack(
+        children: [
+          FadeTransition(
+            opacity: _fade,
+            child: ScrollConfiguration(
+              behavior: const MaterialScrollBehavior().copyWith(
+                scrollbars: false,
+              ),
+              child: SingleChildScrollView(
+                controller: _scroll,
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _HeroSection(
+                      exploreTo: exploreTo,
+                      showGetStarted: !auth.isAuthenticated,
+                    ),
+                    _AboutSection(key: aboutKey),
+                    _HowItWorksSection(key: howItWorksKey),
+                    _CourseSection(key: courseKey),
+                    _WhyPplSection(key: whyPplKey),
+                    const _EvaluationSection(),
+                    const _InvestorDaySection(),
+                    _Footer(
+                      onContactTap: () => setState(() => _contactOpen = true),
+                      onAnchorTap: _scrollToById,
+                      onOpenTerms: () => setState(() => _termsOpen = true),
+                      onOpenPrivacy: () => setState(() => _privacyOpen = true),
+                    ),
+                  ],
                 ),
-                _AboutSection(key: aboutKey),
-                _HowItWorksSection(key: howItWorksKey),
-                _CourseSection(key: courseKey),
-                _WhyPplSection(key: whyPplKey),
-                const _EvaluationSection(),
-                const _InvestorDaySection(),
-                _Footer(
-                  onContactTap: () => setState(() => _contactOpen = true),
-                  onAnchorTap: _scrollToById,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+
+          if (anyModalOpen)
+            Positioned.fill(
+              child: _ModalScrim(
+                onClose: _closeAllModals,
+                child: SafeArea(
+                  top: false,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _contactOpen
+                          ? _ContactModal(onClose: _closeAllModals, key: const ValueKey('contact'))
+                          : _termsOpen
+                              ? TermsModalSheet(onClose: _closeAllModals, key: const ValueKey('terms'))
+                              : PrivacyModalSheet(onClose: _closeAllModals, key: const ValueKey('privacy')),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-      bottomSheet: _contactOpen
-          ? _ContactModal(
-              onClose: () => setState(() => _contactOpen = false),
-            )
-          : null,
       backgroundColor: theme.colorScheme.background,
     );
   }
@@ -180,7 +212,7 @@ class _HeroSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            'Turn Your College Project Into a Startup',
+            'Where Student Projects Meet Real Investors',
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w800,
@@ -242,7 +274,7 @@ class _AboutSection extends StatelessWidget {
           Text('About PPL', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 10),
           Text(
-            "India's platform that helps students convert academic projects into real startups through a structured league—learning, competing, and pitching to investors.",
+            "The Premier Project League (PPL) is India's first platform connecting students, colleges, and investors to turn academic projects into startup opportunities.",
             style: theme.textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
@@ -252,19 +284,19 @@ class _AboutSection extends StatelessWidget {
               _InfoCard(
                 icon: Icons.school,
                 title: 'Entrepreneurial Skills',
-                description: 'Practical startup course, mentors, and resources.',
+                description: 'Learn through our comprehensive Startup Course.',
               ),
               SizedBox(height: 12),
               _InfoCard(
                 icon: Icons.emoji_events,
-                title: 'Compete',
-                description: 'Face off with top student teams across colleges.',
+                title: 'Compete & Excel',
+                description: 'Challenge top projects from other colleges.',
               ),
               SizedBox(height: 12),
               _InfoCard(
                 icon: Icons.trending_up,
-                title: 'Pitch Investors',
-                description: 'Present to active investors on Demo & Investor Day.',
+                title: 'Pitch to Investors',
+                description: 'Present to industry experts and investors.',
               ),
             ],
           ),
@@ -580,10 +612,12 @@ class _InvestorDaySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Replaced emojis with icons to avoid missing glyph warnings on web
     final items = const [
-      ('💰', 'Potential Investments', 'Funding to kickstart your startup.'),
-      ('🤝', 'Mentorship', 'Guidance from experienced founders and experts.'),
-      ('🏛️', 'Incubation', 'Access to incubation and accelerator programs.'),
+      (Icons.attach_money, 'Potential Investments', 'Funding to kickstart your startup.'),
+      (Icons.handshake, 'Mentorship', 'Guidance from experienced founders and experts.'),
+      (Icons.apartment, 'Incubation', 'Access to incubation and accelerator programs.'),
     ];
 
     return Container(
@@ -620,8 +654,8 @@ class _InvestorDaySection extends StatelessWidget {
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         children: [
-                          Text(i.$1, style: const TextStyle(fontSize: 26)),
-                          const SizedBox(height: 4),
+                          Icon(i.$1, color: Colors.white, size: 28),
+                          const SizedBox(height: 6),
                           Text(i.$2,
                               style: const TextStyle(
                                   color: Colors.white, fontWeight: FontWeight.w600)),
@@ -649,7 +683,15 @@ class _InvestorDaySection extends StatelessWidget {
 class _Footer extends StatelessWidget {
   final VoidCallback onContactTap;
   final void Function(String id) onAnchorTap;
-  const _Footer({required this.onContactTap, required this.onAnchorTap});
+  final VoidCallback onOpenTerms;
+  final VoidCallback onOpenPrivacy;
+
+  const _Footer({
+    required this.onContactTap,
+    required this.onAnchorTap,
+    required this.onOpenTerms,
+    required this.onOpenPrivacy,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -666,11 +708,9 @@ class _Footer extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
         child: Column(
           children: [
-            // Top section
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Brand + blurb + socials (icons only)
                 Row(
                   children: [
                     Icon(Icons.rocket_launch, size: 26, color: theme.colorScheme.primary),
@@ -711,8 +751,6 @@ class _Footer extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-
-                // QUICK LINKS — pill-style with icons
                 Text(
                   'QUICK LINKS',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -758,17 +796,15 @@ class _Footer extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 18),
-
-                // Legal + email (kept). No "Contact" button in bottom bar.
                 Wrap(
                   spacing: 14,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _FooterRouteLink('Terms', '/terms'),
-                    _FooterRouteLink('Privacy', '/privacy'),
+                    _FooterTextButton('Terms', onOpenTerms),
+                    _FooterTextButton('Privacy', onOpenPrivacy),
+                    _FooterTextButton('Contact', onContactTap), // added beside Privacy
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -791,15 +827,11 @@ class _Footer extends StatelessWidget {
                 ),
               ],
             ),
-
-            // Divider
             Container(
               height: 1,
               color: divider,
               margin: const EdgeInsets.symmetric(vertical: 18),
             ),
-
-            // Bottom bar — centered © line only
             Center(
               child: Text(
                 '© $year Premier Project League',
@@ -810,6 +842,28 @@ class _Footer extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterTextButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _FooterTextButton(this.label, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Text(
+        label,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurface.withOpacity(0.95),
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.transparent,
         ),
       ),
     );
@@ -903,28 +957,6 @@ class _SocialIconButton extends StatelessWidget {
   }
 }
 
-class _FooterRouteLink extends StatelessWidget {
-  final String label;
-  final String route;
-  const _FooterRouteLink(this.label, this.route);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: () => GoRouter.of(context).go(route),
-      child: Text(
-        label,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurface.withOpacity(0.95),
-          decoration: TextDecoration.underline,
-          decorationColor: Colors.transparent,
-        ),
-      ),
-    );
-  }
-}
-
 /* -------------------------- helpers -------------------------- */
 
 Future<void> _launchUri(String uri) async {
@@ -934,76 +966,498 @@ Future<void> _launchUri(String uri) async {
   }
 }
 
+/* ------------------------- MODAL HOST ------------------------ */
+
+class _ModalScrim extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onClose;
+  const _ModalScrim({required this.child, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(onTap: onClose),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /* ------------------------- CONTACT MODAL --------------------- */
 
-class _ContactModal extends StatelessWidget {
+class _ContactModal extends StatefulWidget {
   final VoidCallback onClose;
+  const _ContactModal({required this.onClose, super.key});
 
-  const _ContactModal({required this.onClose});
+  @override
+  State<_ContactModal> createState() => _ContactModalState();
+}
+
+class _ContactModalState extends State<_ContactModal> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _subject = TextEditingController();
+  final _message = TextEditingController();
+
+  bool _sending = false;
+  bool? _ok;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _subject.dispose();
+    _message.dispose();
+    super.dispose();
+  }
+
+  String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
+  String? _emailV(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'Required' : (!RegExp(r'^\S+@\S+\.\S+$').hasMatch(v.trim()) ? 'Enter a valid email' : null);
+
+  Future<void> _submit() async {
+    final ok = _formKey.currentState?.validate() ?? false;
+    if (!ok) return;
+    setState(() {
+      _sending = true;
+      _ok = null;
+    });
+
+    try {
+      // TODO: wire to your backend/email provider
+      await Future.delayed(const Duration(milliseconds: 900));
+      setState(() => _ok = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message sent!')),
+        );
+      }
+      widget.onClose();
+    } catch (_) {
+      setState(() => _ok = false);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: Colors.black54,
-      child: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return Container(
+      key: const ValueKey('contact-sheet'),
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 640),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4,
+            width: 48,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                height: 4,
-                width: 48,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('Contact', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 12),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Your Email',
-                  hintText: 'you@example.com',
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Message',
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: onClose,
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onClose, // TODO: wire to backend
-                      child: const Text('Send'),
-                    ),
-                  ),
-                ],
+              Text('Get In Touch', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              IconButton(
+                onPressed: widget.onClose,
+                icon: const Icon(Icons.close),
+                tooltip: 'Close',
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Contact Information', style: TextStyle(fontWeight: FontWeight.w600)),
+                SizedBox(height: 6),
+                Text('📧 admin@theppl.in'),
+                Text('📞 +91 8688272429'),
+                Text('📍 Gajuwaka, Visakhapatnam, India'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _name,
+                        decoration: const InputDecoration(labelText: 'Full Name'),
+                        validator: _req,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _email,
+                        decoration: const InputDecoration(labelText: 'Email Address'),
+                        validator: _emailV,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _subject,
+                  decoration: const InputDecoration(labelText: 'Subject'),
+                  validator: _req,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _message,
+                  decoration: const InputDecoration(labelText: 'Message'),
+                  validator: _req,
+                  maxLines: 4,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _sending ? null : widget.onClose,
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _sending ? null : _submit,
+                  child: Text(_sending ? 'Sending...' : 'Send'),
+                ),
+              ),
+            ],
+          ),
+          if (_ok == false) ...[
+            const SizedBox(height: 8),
+            const Text('Failed to send. Please try again.', style: TextStyle(color: Colors.red)),
+          ],
+        ],
       ),
     );
   }
+}
+
+/* ------------------------- TERMS MODAL ----------------------- */
+
+class TermsModalSheet extends StatelessWidget {
+  final VoidCallback onClose;
+  const TermsModalSheet({required this.onClose, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final year = DateTime.now().year;
+    final lastUpdated = _formatToday();
+
+    return Container(
+      key: const ValueKey('terms-sheet'),
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 800),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.scale, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Terms & Conditions',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: theme.dividerColor),
+
+          // BODY — scrollable and height-limited to avoid overflow on small screens
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.70,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: DefaultTextStyle(
+                  style: theme.textTheme.bodyMedium!,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome to theppl.in. By accessing or using our website, you agree to be bound by these Terms and Conditions.',
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      _h3(context, 'Definitions'),
+                      _p(
+                          '“Website” refers to theppl.in. “We”, “Us”, and “Our” refer to the owners and administrators of the website. “User” refers to any person accessing or using our website.'),
+                      _h3(context, 'Use of the Website'),
+                      _p(
+                          'Users agree to use the website only for lawful purposes and in a manner that does not infringe the rights of, restrict, or inhibit anyone else’s use of the site. Unauthorized access, data extraction, or misuse of site content is strictly prohibited.'),
+                      _h3(context, 'Account & Registration'),
+                      _p(
+                          'Users are responsible for maintaining confidentiality of login information and for all activities under their account. Users must be at least 13 years old to register or use this website.'),
+                      _h3(context, 'Intellectual Property'),
+                      _p(
+                          'All content, graphics, logos, and materials on this site are owned by theppl.in unless otherwise stated. You may not reproduce, distribute, or exploit any material without written consent.'),
+                      _h3(context, 'Payments & Refunds'),
+                      _p(
+                          'Payments made through the site (if applicable) are subject to the stated pricing and refund policies. Refunds, if applicable, will follow our Refund Policy guidelines.'),
+                      _h3(context, 'Limitation of Liability'),
+                      _p(
+                          'We do not guarantee that the website will be error-free or available at all times. To the maximum extent permitted by law, we are not liable for any damages resulting from the use of our site.'),
+                      _h3(context, 'Indemnification'),
+                      _p(
+                          'Users agree to indemnify and hold harmless theppl.in and its team from any claims, damages, or expenses arising from misuse of the website.'),
+                      _h3(context, 'Termination'),
+                      _p(
+                          'We reserve the right to suspend or terminate user access at any time without notice if we believe the terms have been violated.'),
+                      _h3(context, 'Governing Law'),
+                      _p('These terms are governed by the laws of India.'),
+                      _h3(context, 'Changes to the Terms'),
+                      _p(
+                          'We may revise these Terms from time to time. Your continued use of the Website means you accept the changes. Please check this page frequently for updates.'),
+                      _h3(context, 'Contact Us'),
+                      _p.rich(
+                        TextSpan(children: [
+                          const TextSpan(text: 'Questions? Email '),
+                          WidgetSpan(
+                            child: InkWell(
+                              onTap: () => _launchUri('mailto:support@theppl.in'),
+                              child: Text('support@theppl.in',
+                                  style: TextStyle(color: theme.colorScheme.primary)),
+                            ),
+                          ),
+                          const TextSpan(text: '.'),
+                        ]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Last updated: $lastUpdated', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          Divider(height: 1, color: theme.dividerColor),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              '© $year Premier Project League — Terms and Conditions',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ------------------------ PRIVACY MODAL ---------------------- */
+
+class PrivacyModalSheet extends StatelessWidget {
+  final VoidCallback onClose;
+  const PrivacyModalSheet({required this.onClose, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final year = DateTime.now().year;
+    final lastUpdated = _formatToday();
+
+    return Container(
+      key: const ValueKey('privacy-sheet'),
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 800),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.shield, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Privacy Policy',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: theme.dividerColor),
+
+          // BODY — scrollable and height-limited
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.70,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: DefaultTextStyle(
+                  style: theme.textTheme.bodyMedium!,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'At theppl.in, we value your privacy. This policy explains how we collect, use, and safeguard your information.',
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      _h3(context, 'Information We Collect'),
+                      _p(
+                          'We may collect personal information (name, email) and non-personal data (browser type, IP, usage statistics via cookies).'),
+                      _h3(context, 'How We Use Information'),
+                      _p(
+                          'To provide and improve services, communicate updates, process registrations, and respond to inquiries.'),
+                      _h3(context, 'Cookies'),
+                      _p(
+                          'We use cookies to enhance experience and for analytics. You can disable cookies in your browser; some features may not work properly.'),
+                      _h3(context, 'Sharing & Disclosure'),
+                      _p(
+                          'We don’t sell personal data. We may share limited information with trusted providers (hosting, payments) only as necessary to operate the site.'),
+                      _h3(context, 'Data Security'),
+                      _p(
+                          'We apply reasonable safeguards but cannot guarantee absolute security of electronic transmissions.'),
+                      _h3(context, 'Your Rights'),
+                      _p('You may request access, correction, or deletion of your data by contacting us.'),
+                      _h3(context, 'Children’s Privacy'),
+                      _p('Our services are not directed to children under 13.'),
+                      _h3(context, 'Changes to This Policy'),
+                      _p(
+                          'We may update this policy. Continued use means you accept the changes — please check this page regularly.'),
+                      _h3(context, 'Contact Us'),
+                      _p.rich(
+                        TextSpan(children: [
+                          const TextSpan(text: 'Email '),
+                          WidgetSpan(
+                            child: InkWell(
+                              onTap: () => _launchUri('mailto:privacy@theppl.in'),
+                              child: Text('privacy@theppl.in',
+                                  style: TextStyle(color: theme.colorScheme.primary)),
+                            ),
+                          ),
+                          const TextSpan(text: ' for any privacy questions.'),
+                        ]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Last updated: $lastUpdated', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          Divider(height: 1, color: theme.dividerColor),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              '© $year Premier Project League — Privacy Policy',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ----------------------- SHARED TEXT HELPERS ----------------- */
+
+Widget _h3(BuildContext context, String text) {
+  final theme = Theme.of(context);
+  return Padding(
+    padding: const EdgeInsets.only(top: 8.0, bottom: 4),
+    child: Text(text, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+  );
+}
+
+class _p extends StatelessWidget {
+  final String? text;
+  final InlineSpan? rich;
+  const _p([this.text]) : rich = null;
+  const _p.rich(this.rich) : text = null;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (rich != null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: RichText(text: rich!, textAlign: TextAlign.start),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(text ?? '', style: theme.textTheme.bodyMedium),
+    );
+  }
+}
+
+String _formatToday() {
+  final now = DateTime.now();
+  const months = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  return '${months[now.month - 1]} ${now.day}, ${now.year}';
 }

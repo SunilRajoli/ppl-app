@@ -20,6 +20,8 @@ import '../../screens/competitions/competition_register_screen.dart';
 import '../../screens/competitions/competition_submit_screen.dart';
 import '../../screens/main/main_nav_screen.dart' as main_nav;
 import '../../screens/competitions/my_submissions_screen.dart';
+import '../../screens/auth/email_verification_notice_screen.dart';
+import '../../screens/auth/verify_email_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -40,6 +42,23 @@ class AppRouter {
         builder: (context, state) {
           final extra = state.extra is Map<String, dynamic> ? state.extra as Map<String, dynamic> : null;
           return RegisterScreen(role: extra?['role'] as String?);
+        },
+      ),
+      // ✅ NEW: Email verification notice (after registration)
+      GoRoute(
+        path: '/verify-email-sent',
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'];
+          return EmailVerificationNoticeScreen(initialEmail: email);
+        },
+      ),
+
+      // ✅ NEW: Verify-email endpoint (consumes ?token=)
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return VerifyEmailScreen(token: token);
         },
       ),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),

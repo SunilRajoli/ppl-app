@@ -28,6 +28,13 @@ class _RoleListScreenState extends State<RoleListScreen>
   final _inviteNameCtrl = TextEditingController();
   final _inviteEmailCtrl = TextEditingController();
 
+  // Delete state
+  bool _deleting = false;
+  String? _deletingId;
+
+  // Current logged-in user (for admin + not-self checks)
+  Map<String, dynamic>? _me;
+
   late final AnimationController _anim;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
@@ -42,6 +49,7 @@ class _RoleListScreenState extends State<RoleListScreen>
     _slide = Tween<Offset>(begin: const Offset(0, .04), end: Offset.zero)
         .animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadMe();
       await _fetch();
       if (mounted) _anim.forward();
     });
@@ -54,6 +62,21 @@ class _RoleListScreenState extends State<RoleListScreen>
     _debounce?.cancel();
     _anim.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMe() async {
+    try {
+      final res = await _api.getProfile();
+      // expect { success, data: { user } } OR { user } OR { data }
+      final u = (res is Map)
+          ? (res['data']?['user'] ?? res['user'] ?? res['data'])
+          : null;
+      if (u is Map) {
+        setState(() => _me = Map<String, dynamic>.from(u));
+      }
+    } catch (_) {
+      // non-blocking
+    }
   }
 
   Future<void> _fetch() async {
@@ -186,6 +209,69 @@ class _RoleListScreenState extends State<RoleListScreen>
       setState(() => _inviteMsg = 'Error: $e');
     } finally {
       if (mounted) setState(() => _inviting = false);
+    }
+  }
+
+  Future<void> _deleteUser(String userId, String name) async {
+    if (_deleting) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete user?'),
+        content: Text('Delete user "${name.isEmpty ? userId : name}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _deleting = true;
+      _deletingId = userId;
+    });
+
+    try {
+      dynamic res;
+      try {
+        res = await _api.deleteUser(userId);
+      } catch (_) {
+        // fallback to soft-deactivate if hard delete not allowed
+        res = await _api.deactivateUser(userId);
+      }
+
+      final ok = (res is Map && (res['success'] == true)) || res == null;
+      if (!ok) {
+        final msg = (res is Map ? (res['message']?.toString() ?? 'Failed to delete user') : 'Failed to delete user');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
+        return;
+      }
+
+      // remove locally
+      setState(() {
+        _users.removeWhere((u) => '${u['id']}' == userId);
+        _filtered.removeWhere((u) => '${u['id']}' == userId);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User deleted')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deleting = false;
+          _deletingId = null;
+        });
+      }
     }
   }
 
@@ -359,7 +445,7 @@ class _RoleListScreenState extends State<RoleListScreen>
                         const SizedBox(height: 12),
 
                         // Invite (admins only)
-                        if (role == 'admin')
+                        if (( _me?['role'] ?? '' ).toString().toLowerCase() == 'admin' && role == 'admin')
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
@@ -446,12 +532,15 @@ class _RoleListScreenState extends State<RoleListScreen>
                                     final id = (u['id'] ?? u['_id'] ?? '$i').toString();
                                     final name = (u['name'] ?? '—').toString();
                                     final email = (u['email'] ?? '—').toString();
-                                    // NOTE: roleStr removed from UI per request
                                     final meta = (u['college'] ?? u['company_name'] ?? u['firm_name'] ?? '').toString();
-                                    final verified = (u['is_verified'] == true);
+                                    final verified = (u['is_verified'] == true) || (u['verified'] == true);
                                     final rank = (u['__rank'] ?? (i + 1)).toString();
                                     final open = (u['__open'] == true);
                                     final initials = _initialsOf(name);
+
+                                    final meRole = (_me?['role'] ?? '').toString().toLowerCase();
+                                    final meId = (_me?['id'] ?? _me?['_id'] ?? '').toString();
+                                    final canDelete = meRole == 'admin' && meId.isNotEmpty && meId != id;
 
                                     final entries = <MapEntry<String, String>>[];
                                     u.forEach((key, value) {
@@ -529,7 +618,7 @@ class _RoleListScreenState extends State<RoleListScreen>
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
-                                                  // Only status chip on the right
+                                                  // Status chip
                                                   Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                     decoration: BoxDecoration(
@@ -544,6 +633,28 @@ class _RoleListScreenState extends State<RoleListScreen>
                                                       style: const TextStyle(fontSize: 11),
                                                     ),
                                                   ),
+
+                                                  // Delete (admin & not-self)
+                                                  if (canDelete) ...[
+                                                    const SizedBox(width: 6),
+                                                    OutlinedButton(
+                                                      onPressed: (_deleting && _deletingId == id)
+                                                          ? null
+                                                          : () => _deleteUser(id, name),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: BorderSide(color: Colors.red.withOpacity(.3)),
+                                                        backgroundColor: Colors.red.withOpacity(.08),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                        minimumSize: const Size(0, 0),
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      child: Text(
+                                                        (_deleting && _deletingId == id) ? 'Deleting…' : 'Delete',
+                                                        style: const TextStyle(fontSize: 12, color: Color(0xFFFF6B6B)),
+                                                      ),
+                                                    ),
+                                                  ],
+
                                                   const SizedBox(width: 6),
                                                   Icon(
                                                     open ? Icons.expand_less : Icons.expand_more,

@@ -43,10 +43,21 @@ class _ProfileScreenState extends State<ProfileScreen>
   final _stageCtrl = TextEditingController();
   final _websiteCtrl = TextEditingController();
 
-  // skills (mostly for student, but we allow others too)
+  // skills
   final _skillCtrl = TextEditingController();
   final FocusNode _skillFocus = FocusNode();
   List<String> _skills = <String>[];
+
+  // NEW: extra profile fields (matching React)
+  String _gender =
+      'prefer_not_to_say'; // male|female|non_binary|prefer_not_to_say
+  String _eduType = 'undergraduate'; // undergraduate|graduate|other
+  final _workExpCtrl = TextEditingController(); // years (only for graduate)
+
+  // Read-only consent + active status
+  String? _agreedTncAt; // ISO string
+  String? _agreedPrivacyAt; // ISO string
+  bool? _isActive; // bool
 
   late final AnimationController _anim;
   late final Animation<double> _fade;
@@ -55,8 +66,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   User? _user;
   Map<String, dynamic>? _rawUser;
 
-  String get _role =>
-      (_user?.role ?? '').trim().toLowerCase(); // student | hiring | investor | admin
+  String get _role => (_user?.role ?? '')
+      .trim()
+      .toLowerCase(); // student | hiring | investor | admin
 
   bool get isStudent => _role == 'student';
   bool get isHiring => _role == 'hiring';
@@ -66,7 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
-    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _anim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 420));
     _fade = CurvedAnimation(parent: _anim, curve: Curves.easeIn);
     _slide = Tween<Offset>(begin: const Offset(0, .04), end: Offset.zero)
         .animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
@@ -92,6 +105,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     _skillCtrl.dispose();
     _skillFocus.dispose();
+
+    _workExpCtrl.dispose();
+
     _anim.dispose();
     super.dispose();
   }
@@ -130,8 +146,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     // common
     _nameCtrl.text = u.name;
-    _phoneCtrl.text = (raw?['phone'] ?? '').toString();
-    _countryCtrl.text = (raw?['country'] ?? '').toString();
+    _phoneCtrl.text = (raw?['phone'] ?? u.toJson()['phone'] ?? '').toString();
+    _countryCtrl.text =
+        (raw?['country'] ?? u.toJson()['country'] ?? '').toString();
 
     // student
     _collegeCtrl.text = u.college ?? '';
@@ -139,15 +156,40 @@ class _ProfileScreenState extends State<ProfileScreen>
     _yearCtrl.text = (u.year?.toString() ?? '');
 
     // hiring
-    _orgCtrl.text = (raw?['company_name'] ?? raw?['org'] ?? '').toString();
+    _orgCtrl.text =
+        (raw?['company_name'] ?? raw?['org'] ?? u.toJson()['org'] ?? '')
+            .toString();
     _teamSizeCtrl.text = (raw?['team_size'] ?? '').toString();
 
     // investor
     _firmCtrl.text = (raw?['firm_name'] ?? '').toString();
     _stageCtrl.text = (raw?['investment_stage'] ?? '').toString();
-    _websiteCtrl.text = (raw?['website'] ?? raw?['company_website'] ?? '').toString();
+    _websiteCtrl.text =
+        (raw?['website'] ?? raw?['company_website'] ?? '').toString();
 
-    _skills = _readSkills(raw);
+    // skills
+    _skills = _readSkills(raw ?? u.toJson());
+
+    // NEW: extra fields
+    _gender = (raw?['gender'] ?? u.toJson()['gender'] ?? 'prefer_not_to_say')
+        .toString();
+    _eduType = (raw?['edu_type'] ?? u.toJson()['edu_type'] ?? 'undergraduate')
+        .toString();
+
+    final workExpAny =
+        raw?['work_experience_years'] ?? u.toJson()['work_experience_years'];
+    _workExpCtrl.text = workExpAny == null ? '' : workExpAny.toString();
+
+    _agreedTncAt =
+        (raw?['agreed_tnc_at'] ?? u.toJson()['agreed_tnc_at'])?.toString();
+    _agreedPrivacyAt =
+        (raw?['agreed_privacy_at'] ?? u.toJson()['agreed_privacy_at'])
+            ?.toString();
+    final activeAny = raw?['is_active'] ?? u.toJson()['is_active'];
+    _isActive = activeAny is bool
+        ? activeAny
+        : (activeAny?.toString().toLowerCase() == 'true');
+
     setState(() {});
   }
 
@@ -155,12 +197,17 @@ class _ProfileScreenState extends State<ProfileScreen>
     final v = raw?['skills'];
     if (v == null) return <String>[];
     if (v is List) {
-      return v.map((e) => (e ?? '').toString())
-          .where((s) => s.trim().isNotEmpty).toList();
+      return v
+          .map((e) => (e ?? '').toString())
+          .where((s) => s.trim().isNotEmpty)
+          .toList();
     }
     if (v is String) {
-      return v.split(',').map((s) => s.trim())
-          .where((s) => s.isNotEmpty).toList();
+      return v
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     return <String>[];
   }
@@ -177,7 +224,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     final input = _skillCtrl.text.trim();
     if (input.isEmpty) return;
 
-    final parts = input.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+    final parts =
+        input.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
     final existingLower = _skills.map((s) => s.toLowerCase()).toSet();
     final merged = List<String>.of(_skills);
     for (final p in parts) {
@@ -219,13 +267,31 @@ class _ProfileScreenState extends State<ProfileScreen>
       }
     }
 
-    // build payload based on role
+    int? workExp;
+    if (_eduType == 'graduate') {
+      if (_workExpCtrl.text.trim().isEmpty) {
+        setState(() => _error = 'Please enter your work experience (years).');
+        return;
+      }
+      workExp = int.tryParse(_workExpCtrl.text.trim());
+      if (workExp == null || workExp < 0 || workExp > 60) {
+        setState(() => _error = 'Work experience must be between 0 and 60.');
+        return;
+      }
+    }
+
+    // build payload based on role + NEW fields
     final payload = <String, dynamic>{
       // common
       'name': _nameCtrl.text.trim(),
       'phone': _phoneCtrl.text.trim(),
       'country': _countryCtrl.text.trim(),
       'skills': _skills,
+
+      // NEW fields (present in React)
+      'gender': _gender,
+      'edu_type': _eduType,
+      'work_experience_years': _eduType == 'graduate' ? (workExp ?? 0) : 0,
 
       // role-specific
       if (isStudent) ...{
@@ -286,17 +352,40 @@ class _ProfileScreenState extends State<ProfileScreen>
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Logout')),
         ],
       ),
     );
     if (ok != true) return;
 
-    // single source of truth: let AuthProvider handle the API + storage
     await context.read<AuthProvider>().logout();
     if (!mounted) return;
     context.go('/login');
+  }
+
+  String _prettyInitials() {
+    final n = (_user?.name ?? '').trim();
+    if (n.isEmpty) return 'U';
+    final parts = n.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    return parts.length >= 2
+        ? (parts.first[0] + parts.last[0]).toUpperCase()
+        : n[0].toUpperCase();
+  }
+
+  String _fmtIso(String? iso) {
+    if (iso == null || iso.isEmpty) return '—';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '—';
+    }
   }
 
   @override
@@ -304,14 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     final theme = Theme.of(context);
     final borderColor = theme.colorScheme.outline.withOpacity(0.25);
 
-    final initials = (() {
-      final n = (_user?.name ?? '').trim();
-      if (n.isEmpty) return 'U';
-      final parts = n.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
-      return parts.length >= 2
-          ? (parts.first[0] + parts.last[0]).toUpperCase()
-          : n[0].toUpperCase();
-    })();
+    final initials = _prettyInitials();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile'), elevation: 0),
@@ -342,8 +424,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                               children: [
                                 CircleAvatar(
                                   radius: 30,
-                                  backgroundColor:
-                                      theme.colorScheme.primary.withOpacity(0.12),
+                                  backgroundColor: theme.colorScheme.primary
+                                      .withOpacity(0.12),
                                   child: Text(
                                     initials,
                                     style: TextStyle(
@@ -356,16 +438,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        (_user?.name ?? '').isNotEmpty ? _user!.name : '-',
-                                        style: theme.textTheme.titleMedium?.copyWith(
+                                        (_user?.name ?? '').isNotEmpty
+                                            ? _user!.name
+                                            : '-',
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      Text(_user?.email ?? '-', style: theme.textTheme.bodySmall),
+                                      Text(_user?.email ?? '-',
+                                          style: theme.textTheme.bodySmall),
                                       const SizedBox(height: 8),
                                       Wrap(
                                         spacing: 8,
@@ -373,7 +460,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                         children: [
                                           _Pill(
                                             icon: Icons.shield_outlined,
-                                            label: (_user?.role ?? 'user').toUpperCase(),
+                                            label: (_user?.role ?? 'user')
+                                                .toUpperCase(),
                                           ),
                                         ],
                                       ),
@@ -383,7 +471,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 IconButton(
                                   tooltip: _editing ? 'Cancel' : 'Edit',
                                   onPressed: _toggleEditing,
-                                  icon: Icon(_editing ? Icons.close : Icons.edit_outlined),
+                                  icon: Icon(_editing
+                                      ? Icons.close
+                                      : Icons.edit_outlined),
                                 ),
                               ],
                             ),
@@ -397,16 +487,19 @@ class _ProfileScreenState extends State<ProfileScreen>
                               decoration: BoxDecoration(
                                 color: Colors.red.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.withOpacity(0.25)),
+                                border: Border.all(
+                                    color: Colors.red.withOpacity(0.25)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Colors.red),
+                                  const Icon(Icons.error_outline,
+                                      color: Colors.red),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       _error!,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         color: Colors.red.shade700,
                                       ),
                                     ),
@@ -453,7 +546,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   keyboardType: TextInputType.phone,
                                   hint: 'Contact number',
                                   hideIfEmptyWhenNotEditing: true,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
                                 ),
                                 const SizedBox(height: 10),
                                 _RowField(
@@ -477,7 +572,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     controller: _collegeCtrl,
                                     value: _collegeCtrl.text,
                                     hint: 'College name',
-                                    textCapitalization: TextCapitalization.words,
+                                    textCapitalization:
+                                        TextCapitalization.words,
                                   ),
                                   const SizedBox(height: 10),
                                   _RowField(
@@ -487,7 +583,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     controller: _branchCtrl,
                                     value: _branchCtrl.text,
                                     hint: 'e.g. Computer Science',
-                                    textCapitalization: TextCapitalization.words,
+                                    textCapitalization:
+                                        TextCapitalization.words,
                                   ),
                                   const SizedBox(height: 10),
                                   _RowField(
@@ -498,7 +595,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     value: _yearCtrl.text,
                                     keyboardType: TextInputType.number,
                                     hint: 'e.g. 3',
-                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly
+                                    ],
                                   ),
                                 ],
 
@@ -512,7 +611,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     controller: _orgCtrl,
                                     value: _orgCtrl.text,
                                     hint: 'Company name',
-                                    textCapitalization: TextCapitalization.words,
+                                    textCapitalization:
+                                        TextCapitalization.words,
                                   ),
                                   const SizedBox(height: 10),
                                   _RowField(
@@ -523,7 +623,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     value: _teamSizeCtrl.text,
                                     keyboardType: TextInputType.number,
                                     hint: 'e.g. 12',
-                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly
+                                    ],
                                     hideIfEmptyWhenNotEditing: true,
                                   ),
                                   const SizedBox(height: 10),
@@ -548,7 +650,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     controller: _firmCtrl,
                                     value: _firmCtrl.text,
                                     hint: 'Firm/Angel name',
-                                    textCapitalization: TextCapitalization.words,
+                                    textCapitalization:
+                                        TextCapitalization.words,
                                   ),
                                   const SizedBox(height: 10),
                                   _RowField(
@@ -571,7 +674,121 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                 ],
 
-                                // admin: minimal (common fields already shown)
+                                const SizedBox(height: 14),
+
+                                // NEW: Gender (dropdown) — available to all
+                                _Labeled(
+                                  label: 'Gender',
+                                  icon: Icons.person_3_outlined,
+                                  child: _editing
+                                      ? DropdownButtonFormField<String>(
+                                          value: _gender,
+                                          items: const [
+                                            DropdownMenuItem(
+                                                value: 'male',
+                                                child: Text('Male')),
+                                            DropdownMenuItem(
+                                                value: 'female',
+                                                child: Text('Female')),
+                                            DropdownMenuItem(
+                                                value: 'non_binary',
+                                                child: Text('Non-binary')),
+                                            DropdownMenuItem(
+                                                value: 'prefer_not_to_say',
+                                                child:
+                                                    Text('Prefer not to say')),
+                                          ],
+                                          onChanged: (v) => setState(() =>
+                                              _gender =
+                                                  v ?? 'prefer_not_to_say'),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 10),
+                                            border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                        )
+                                      : Text(
+                                          _gender.replaceAll('_', ' '),
+                                          style: theme.textTheme.bodyMedium,
+                                        ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // NEW: Type (dropdown) + conditional Work Experience
+                                _Labeled(
+                                  label: 'Type',
+                                  icon: Icons.school_outlined,
+                                  child: _editing
+                                      ? DropdownButtonFormField<String>(
+                                          value: _eduType,
+                                          items: const [
+                                            DropdownMenuItem(
+                                                value: 'undergraduate',
+                                                child: Text('Undergraduate')),
+                                            DropdownMenuItem(
+                                                value: 'graduate',
+                                                child: Text('Graduate')),
+                                            DropdownMenuItem(
+                                                value: 'other',
+                                                child: Text('Other')),
+                                          ],
+                                          onChanged: (v) => setState(() =>
+                                              _eduType = v ?? 'undergraduate'),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 10),
+                                            border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12)),
+                                          ),
+                                        )
+                                      : Text(_eduType,
+                                          style: theme.textTheme.bodyMedium),
+                                ),
+
+                                if (_eduType == 'graduate') ...[
+                                  const SizedBox(height: 10),
+                                  _Labeled(
+                                    label: 'Work Experience (years)',
+                                    icon: Icons.work_outline,
+                                    child: _editing
+                                        ? TextField(
+                                            controller: _workExpCtrl,
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly
+                                            ],
+                                            decoration: InputDecoration(
+                                              hintText: 'e.g., 2',
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10),
+                                              border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12)),
+                                            ),
+                                          )
+                                        : Text(
+                                            _workExpCtrl.text.isEmpty
+                                                ? '—'
+                                                : _workExpCtrl.text,
+                                            style: theme.textTheme.bodyMedium,
+                                          ),
+                                  ),
+                                ],
 
                                 const SizedBox(height: 14),
 
@@ -580,7 +797,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   label: 'Skills',
                                   icon: Icons.tag_outlined,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Wrap(
                                         spacing: 8,
@@ -589,11 +807,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                                           for (final s in _skills)
                                             InputChip(
                                               label: Text(s),
-                                              onDeleted: _editing ? () => _removeSkill(s) : null,
+                                              onDeleted: _editing
+                                                  ? () => _removeSkill(s)
+                                                  : null,
                                             ),
                                           if (_editing)
                                             ConstrainedBox(
-                                              constraints: const BoxConstraints(maxWidth: 280),
+                                              constraints: const BoxConstraints(
+                                                  maxWidth: 280),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
@@ -601,18 +822,25 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                     child: TextField(
                                                       focusNode: _skillFocus,
                                                       controller: _skillCtrl,
-                                                      decoration: InputDecoration(
+                                                      decoration:
+                                                          InputDecoration(
                                                         hintText: 'Add skill',
                                                         isDense: true,
-                                                        contentPadding: const EdgeInsets.symmetric(
+                                                        contentPadding:
+                                                            const EdgeInsets
+                                                                .symmetric(
                                                           horizontal: 12,
                                                           vertical: 10,
                                                         ),
-                                                        border: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
+                                                        border:
+                                                            OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(12),
                                                         ),
                                                       ),
-                                                      onSubmitted: (_) => _addSkill(),
+                                                      onSubmitted: (_) =>
+                                                          _addSkill(),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -630,18 +858,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       ),
                                       if (_editing)
                                         Padding(
-                                          padding: const EdgeInsets.only(top: 6),
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
                                           child: Text(
                                             'Tip: Add multiple with commas (e.g., React, Flutter, SQL).',
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.colorScheme.onSurfaceVariant,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant,
                                             ),
                                           ),
                                         ),
                                       if (!_editing && _skills.isEmpty)
-                                        Text('—', style: theme.textTheme.bodyMedium),
+                                        Text('—',
+                                            style: theme.textTheme.bodyMedium),
                                     ],
                                   ),
+                                ),
+
+                                const SizedBox(height: 14),
+
+                                // Read-only consent timestamps + active
+                                _Labeled(
+                                  label: 'Agreed T&C',
+                                  icon: Icons.verified_outlined,
+                                  child: Text(_fmtIso(_agreedTncAt),
+                                      style: theme.textTheme.bodyMedium),
+                                ),
+                                const SizedBox(height: 10),
+                                _Labeled(
+                                  label: 'Agreed Privacy',
+                                  icon: Icons.privacy_tip_outlined,
+                                  child: Text(_fmtIso(_agreedPrivacyAt),
+                                      style: theme.textTheme.bodyMedium),
+                                ),
+                                const SizedBox(height: 10),
+                                _Labeled(
+                                  label: 'Active',
+                                  icon: Icons.check_circle_outline,
+                                  child: Text(_isActive == true ? 'Yes' : 'No',
+                                      style: theme.textTheme.bodyMedium),
                                 ),
                               ],
                             ),
@@ -650,33 +906,31 @@ class _ProfileScreenState extends State<ProfileScreen>
                           const SizedBox(height: 16),
 
                           // ===== Actions =====
-                          Row(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => context.push('/change-password'),
-                                  icon: const Icon(Icons.lock_outline),
-                                  label: const Text('Change Password'),
-                                ),
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    context.push('/change-password'),
+                                icon: const Icon(Icons.lock_outline),
+                                label: const Text('Change Password'),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _editing
-                                    ? FilledButton.icon(
-                                        onPressed: _saving ? null : _save,
-                                        icon: const Icon(Icons.save_outlined),
-                                        label: Text(_saving ? 'Saving…' : 'Save'),
-                                      )
-                                    : ElevatedButton.icon(
-                                        onPressed: _logout,
-                                        icon: const Icon(Icons.logout),
-                                        label: const Text('Logout'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red.shade600,
-                                          foregroundColor: Colors.white,
-                                        ),
+                              const SizedBox(height: 10),
+                              _editing
+                                  ? FilledButton.icon(
+                                      onPressed: _saving ? null : _save,
+                                      icon: const Icon(Icons.save_outlined),
+                                      label: Text(_saving ? 'Saving…' : 'Save'),
+                                    )
+                                  : ElevatedButton.icon(
+                                      onPressed: _logout,
+                                      icon: const Icon(Icons.logout),
+                                      label: const Text('Logout'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red.shade600,
+                                        foregroundColor: Colors.white,
                                       ),
-                              ),
+                                    ),
                             ],
                           ),
                         ],
@@ -714,7 +968,8 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -823,11 +1078,14 @@ class _RowField extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: hint,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             )
-          : Text(value.isNotEmpty ? value : '—', style: theme.textTheme.bodyMedium),
+          : Text(value.isNotEmpty ? value : '—',
+              style: theme.textTheme.bodyMedium),
     );
   }
 }

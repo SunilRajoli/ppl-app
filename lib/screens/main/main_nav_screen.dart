@@ -1,7 +1,11 @@
+// lib/screens/competitions/main_nav_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/providers/auth_provider.dart';
+// ⬇️ Reuse the exact ThemeToggle used in GlobalTopBar
+import '../../widgets/custom_widgets.dart'; // ThemeToggle
 
 // Your existing screens
 import '../landing_screen.dart';
@@ -12,11 +16,13 @@ import './profile_screen.dart';
 // ✅ Real Admin Hub screen
 import '../admin/admin_hub_screen.dart';
 
+enum _MenuAction { changePassword, logout }
+
 class MainNavScreen extends StatefulWidget {
-  /// 'dashboard' | 'competitions' | 'feed' | 'profile' | 'admin'
+  /// 'home' | 'competition' | 'feed' | 'profile' | 'admin'
   final String initialTab;
 
-  const MainNavScreen({super.key, this.initialTab = 'dashboard'});
+  const MainNavScreen({super.key, this.initialTab = 'home'});
 
   @override
   State<MainNavScreen> createState() => _MainNavScreenState();
@@ -29,7 +35,7 @@ class _MainNavScreenState extends State<MainNavScreen> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = 0; // temp; we’ll jump once role is readable
+    _currentIndex = 0; // temporary; we’ll jump after provider is ready
     _pageController = PageController(initialPage: _currentIndex);
 
     // Defer until first frame so Provider is ready
@@ -53,9 +59,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
   /// Map a tab string to an index, respecting admin availability.
   int _tabToIndex(String tab, bool isAdmin) {
     switch (tab) {
-      case 'dashboard':
+      case 'home':
         return 0;
-      case 'competitions':
+      case 'competition':
         return 1;
       case 'feed':
         return 2;
@@ -90,6 +96,25 @@ class _MainNavScreenState extends State<MainNavScreen> {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  Future<void> _handleMenuAction(_MenuAction action) async {
+    switch (action) {
+      case _MenuAction.changePassword:
+        if (!mounted) return;
+        // ✅ GoRouter navigation (consistent with rest of app)
+        context.push('/change-password');
+        break;
+
+      case _MenuAction.logout:
+        final auth = context.read<AuthProvider>();
+        await auth.logout(); // clear tokens/session etc.
+
+        if (!mounted) return;
+        // ✅ GoRouter stack reset to login
+        context.go('/login');
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -116,12 +141,12 @@ class _MainNavScreenState extends State<MainNavScreen> {
       const NavigationDestination(
         icon: Icon(Icons.dashboard_outlined),
         selectedIcon: Icon(Icons.dashboard),
-        label: 'Dashboard',
+        label: 'Home',
       ),
       const NavigationDestination(
         icon: Icon(Icons.emoji_events_outlined),
         selectedIcon: Icon(Icons.emoji_events),
-        label: 'Competitions',
+        label: 'Competition',
       ),
       const NavigationDestination(
         icon: Icon(Icons.feed_outlined),
@@ -169,27 +194,14 @@ class _MainNavScreenState extends State<MainNavScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Handle notifications
-            },
-          ),
-          PopupMenuButton<void>(
-            icon: CircleAvatar(
-              radius: 16,
-              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-              child: Text(
-                initials,
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            itemBuilder: (context) => <PopupMenuEntry<void>>[
-              PopupMenuItem<void>(
+          // ⬇️ Replaced notifications bell with the same toggle as GlobalTopBar
+          const ThemeToggle(),
+          const SizedBox(width: 6),
+
+          PopupMenuButton<_MenuAction>(
+            onSelected: _handleMenuAction, // ✅ runs after menu closes
+            itemBuilder: (context) => <PopupMenuEntry<_MenuAction>>[
+              PopupMenuItem<_MenuAction>(
                 enabled: false,
                 child: Row(
                   children: [
@@ -213,15 +225,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
                 ),
               ),
               const PopupMenuDivider(),
-              PopupMenuItem<void>(
-                onTap: () {
-                  // Run after the menu closes
-                  Future.microtask(() {
-                    // Navigate to your change-password route if needed
-                    // context.push('/change-password'); // if using GoRouter here
-                  });
-                },
-                child: const Row(
+              const PopupMenuItem<_MenuAction>(
+                value: _MenuAction.changePassword,
+                child: Row(
                   children: [
                     Icon(Icons.lock),
                     SizedBox(width: 12),
@@ -229,13 +235,9 @@ class _MainNavScreenState extends State<MainNavScreen> {
                   ],
                 ),
               ),
-              PopupMenuItem<void>(
-                onTap: () {
-                  Future.microtask(() async {
-                    await auth.logout();
-                  });
-                },
-                child: const Row(
+              const PopupMenuItem<_MenuAction>(
+                value: _MenuAction.logout,
+                child: Row(
                   children: [
                     Icon(Icons.logout, color: Colors.red),
                     SizedBox(width: 12),
@@ -244,6 +246,18 @@ class _MainNavScreenState extends State<MainNavScreen> {
                 ),
               ),
             ],
+            icon: CircleAvatar(
+              radius: 16,
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+              child: Text(
+                initials,
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
         ],

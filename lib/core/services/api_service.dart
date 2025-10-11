@@ -55,8 +55,9 @@ class ApiService {
 
   dynamic _encodeBodyIfNeeded(dynamic body, Map<String, String> headers) {
     if (body == null) return null;
-    final isJson =
-        (headers['Content-Type'] ?? '').toLowerCase().contains('application/json');
+    final isJson = (headers['Content-Type'] ?? '')
+        .toLowerCase()
+        .contains('application/json');
     if (isJson && body is! String) return jsonEncode(body);
     return body;
   }
@@ -78,7 +79,8 @@ class ApiService {
     try {
       switch (method.toUpperCase()) {
         case 'GET':
-          resp = await _client.get(uri, headers: mergedHeaders).timeout(timeout);
+          resp =
+              await _client.get(uri, headers: mergedHeaders).timeout(timeout);
           break;
         case 'POST':
           resp = await _client
@@ -146,7 +148,8 @@ class ApiService {
       message = data;
     }
 
-    throw ApiException(message: message, statusCode: response.statusCode, data: data);
+    throw ApiException(
+        message: message, statusCode: response.statusCode, data: data);
   }
 
   MediaType? _guessMediaType(String? filename) {
@@ -316,7 +319,11 @@ class ApiService {
     required String password,
     String? role,
   }) async {
-    final body = {'email': email, 'password': password, if (role != null) 'role': role};
+    final body = {
+      'email': email,
+      'password': password,
+      if (role != null) 'role': role
+    };
     return _request('/auth/login', method: 'POST', body: body);
   }
 
@@ -344,6 +351,25 @@ class ApiService {
     return _request('/auth/change-password', method: 'POST', body: body);
   }
 
+  Future<dynamic> verifyEmail(String token) async {
+    return _request('/auth/verify-email',
+        method: 'GET', query: {'token': token});
+  }
+
+  /// POST /auth/resend-verification (uses current session)
+  Future<dynamic> resendVerification() async {
+    return _request('/auth/resend-verification', method: 'POST');
+  }
+
+  /// POST /auth/resend-verification-public  { email }
+  Future<dynamic> resendVerificationPublic(String email) async {
+    return _request(
+      '/auth/resend-verification-public',
+      method: 'POST',
+      body: {'email': email},
+    );
+  }
+
   Future<dynamic> forgotPassword(String email) async {
     return _request('/auth/forgot-password',
         method: 'POST', body: {'email': email});
@@ -362,10 +388,13 @@ class ApiService {
     String? redirectUri,
     String? state,
   }) async {
-    final params = <String, dynamic>{
-      if (redirectUri != null && redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
-      if (state != null && state.isNotEmpty) 'state': state,
-    };
+    final params = <String, String>{};
+    if (redirectUri != null && redirectUri.isNotEmpty) {
+      params['redirect_uri'] = redirectUri;
+    }
+    if (state != null && state.isNotEmpty) {
+      params['state'] = state;
+    }
     final uri = _buildUri('/auth/google', params);
     return {'data': {'authUrl': uri.toString()}};
   }
@@ -376,11 +405,14 @@ class ApiService {
     String? state,
   }) async {
     final params = <String, dynamic>{
-      if (redirectUri != null && redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
+      if (redirectUri != null && redirectUri.isNotEmpty)
+        'redirect_uri': redirectUri,
       if (state != null && state.isNotEmpty) 'state': state,
     };
     final uri = _buildUri('/auth/github', params);
-    return {'data': {'authUrl': uri.toString()}};
+    return {
+      'data': {'authUrl': uri.toString()}
+    };
   }
 
   /// Exchange provider code for a JWT/session (backend should return token + user)
@@ -392,7 +424,8 @@ class ApiService {
     final body = {
       'code': code,
       'provider': provider,
-      if (redirectUri != null && redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
+      if (redirectUri != null && redirectUri.isNotEmpty)
+        'redirect_uri': redirectUri,
     };
     return _request('/auth/oauth/exchange', method: 'POST', body: body);
   }
@@ -413,7 +446,8 @@ class ApiService {
     return _request('/competitions', method: 'POST', body: payload);
   }
 
-  Future<dynamic> updateCompetition(String id, Map<String, dynamic> payload) async {
+  Future<dynamic> updateCompetition(
+      String id, Map<String, dynamic> payload) async {
     return _request('/competitions/$id', method: 'PUT', body: payload);
   }
 
@@ -421,24 +455,29 @@ class ApiService {
     return _request('/competitions/$id', method: 'DELETE');
   }
 
-  Future<dynamic> registerForCompetition(String id, Map<String, dynamic> payload) async {
-    return _request('/competitions/$id/register', method: 'POST', body: payload);
+  Future<dynamic> registerForCompetition(
+      String id, Map<String, dynamic> payload) async {
+    return _request('/competitions/$id/register',
+        method: 'POST', body: payload);
   }
 
   // ✅ ADDED: matches GET /competitions/:id/registrations (hiring/investor/admin)
   Future<dynamic> getCompetitionRegistrations(String competitionId) async {
-    return _request('/competitions/$competitionId/registrations', method: 'GET');
+    return _request('/competitions/$competitionId/registrations',
+        method: 'GET');
   }
 
   // DEPRECATED: old wrong endpoint
   @Deprecated('Use createSubmission instead.')
-  Future<dynamic> submitCompetitionEntry(String id, Map<String, dynamic> payload) async {
+  Future<dynamic> submitCompetitionEntry(
+      String id, Map<String, dynamic> payload) async {
     // Intentionally call the correct endpoint to avoid 404s if used anywhere
     return _request('/submissions/$id', method: 'POST', body: payload);
   }
 
   /// Preferred helper for creating a submission
-  Future<dynamic> createCompetitionSubmission(String competitionId, Map<String, dynamic> payload) async {
+  Future<dynamic> createCompetitionSubmission(
+      String competitionId, Map<String, dynamic> payload) async {
     // Route to the correct backend endpoint
     return createSubmission(competitionId, payload);
   }
@@ -535,7 +574,8 @@ class ApiService {
       if (summary != null && summary.isNotEmpty) 'summary': summary,
       if (repoUrl != null && repoUrl.isNotEmpty) 'repo_url': repoUrl,
       if (driveUrl != null && driveUrl.isNotEmpty) 'drive_url': driveUrl,
-      if (competitionId != null && competitionId.isNotEmpty) 'competition_id': competitionId,
+      if (competitionId != null && competitionId.isNotEmpty)
+        'competition_id': competitionId,
     };
 
     final singles = <String, _BytesPayload>{
@@ -550,7 +590,8 @@ class ApiService {
           List<String>.filled(attachmentsBytes.length, 'file');
       final payloads = <_BytesPayload>[];
       for (var i = 0; i < attachmentsBytes.length; i++) {
-        payloads.add(_BytesPayload(bytes: attachmentsBytes[i], filename: names[i]));
+        payloads
+            .add(_BytesPayload(bytes: attachmentsBytes[i], filename: names[i]));
       }
       lists['attachments'] = payloads;
     }
@@ -567,7 +608,8 @@ class ApiService {
   // PERKS
   // ---------------------------
 
-  Future<dynamic> getPerks({int page = 1, int limit = 50, String? search}) async {
+  Future<dynamic> getPerks(
+      {int page = 1, int limit = 50, String? search}) async {
     final query = <String, dynamic>{
       'page': '$page',
       'limit': '$limit',
@@ -592,8 +634,10 @@ class ApiService {
   // SUBMISSIONS
   // ---------------------------
 
-  Future<dynamic> createSubmission(String competitionId, Map<String, dynamic> payload) async {
-    return _request('/submissions/$competitionId', method: 'POST', body: payload);
+  Future<dynamic> createSubmission(
+      String competitionId, Map<String, dynamic> payload) async {
+    return _request('/submissions/$competitionId',
+        method: 'POST', body: payload);
   }
 
   Future<dynamic> listMySubmissions() async {
@@ -604,21 +648,25 @@ class ApiService {
     return _request('/submissions/competition/$competitionId', method: 'GET');
   }
 
-  Future<dynamic> updateSubmission(String submissionId, Map<String, dynamic> payload) async {
+  Future<dynamic> updateSubmission(
+      String submissionId, Map<String, dynamic> payload) async {
     return _request('/submissions/$submissionId', method: 'PUT', body: payload);
   }
 
   /// ✅ ADDED: matches POST /submissions/competition/:competitionId/publish
   Future<dynamic> publishCompetitionResults(String competitionId) async {
-    return _request('/submissions/competition/$competitionId/publish', method: 'POST');
+    return _request('/submissions/competition/$competitionId/publish',
+        method: 'POST');
   }
 
   // ---------------------------
   // ADMIN
   // ---------------------------
 
-  Future<dynamic> inviteAdmin({required String name, required String email}) async {
-    return _request('/admin/invite', method: 'POST', body: {'name': name, 'email': email});
+  Future<dynamic> inviteAdmin(
+      {required String name, required String email}) async {
+    return _request('/admin/invite',
+        method: 'POST', body: {'name': name, 'email': email});
   }
 
   Future<dynamic> getAdminList() async {
@@ -627,6 +675,21 @@ class ApiService {
 
   Future<dynamic> deactivateAdmin(String adminId) async {
     return _request('/admin/$adminId/deactivate', method: 'DELETE');
+  }
+
+  Future<dynamic> deleteUser(String userId) async {
+    if (userId.isEmpty) {
+      throw ApiException(message: 'User id is required');
+    }
+    return _request('/users/$userId', method: 'DELETE');
+  }
+
+  Future<dynamic> deactivateUser(String userId) async {
+    if (userId.isEmpty) {
+      throw ApiException(message: 'User id is required');
+    }
+    // mirrors the React fallback route
+    return _request('/users/$userId/deactivate', method: 'PUT');
   }
 }
 
@@ -638,7 +701,9 @@ class ApiException implements Exception {
   ApiException({required this.message, this.statusCode, this.data});
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() {
+    return message;
+  }
 }
 
 class _BytesPayload {

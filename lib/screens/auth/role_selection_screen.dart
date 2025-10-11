@@ -91,10 +91,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
               : null,
           title: const Text('Choose Role'),
           actions: [
-            TextButton(
-              onPressed: () => context.push('/login'),
-              child: const Text('Skip'),
-            ),
+            // ❌ Skip button commented out
+            // TextButton(
+            //   onPressed: () => context.push('/login'),
+            //   child: const Text('Skip'),
+            // ),
           ],
         ),
         body: SafeArea(

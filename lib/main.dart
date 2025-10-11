@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/providers/auth_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
-import 'package:google_fonts/google_fonts.dart';
+// Only import deep link service on mobile platforms
+// ignore: unused_import
+import './core/services/deep_link_service.dart' if (dart.library.html) 'core/services/deep_link_service_stub.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Lock orientation to portrait
@@ -29,8 +33,21 @@ Future<void> main() async {
   runApp(const PPLApp());
 }
 
-class PPLApp extends StatelessWidget {
+class PPLApp extends StatefulWidget {
   const PPLApp({super.key});
+
+  @override
+  State<PPLApp> createState() => _PPLAppState();
+}
+
+class _PPLAppState extends State<PPLApp> {
+  final _deepLinkService = DeepLinkService();
+
+  @override
+  void dispose() {
+    _deepLinkService.dispose();
+    super.dispose();
+  }
 
   // Helper: apply Inter font using Google Fonts
   ThemeData _withInter(ThemeData base) {
@@ -73,6 +90,13 @@ class PPLApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             routerConfig: AppRouter.router,
             scrollBehavior: const _NoGlowScrollBehavior(),
+            builder: (context, child) {
+              // Initialize deep links after the router is ready
+              if (child != null) {
+                _deepLinkService.initialize(context);
+              }
+              return child ?? const SizedBox.shrink();
+            },
           );
         },
       ),
