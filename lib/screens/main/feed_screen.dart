@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/services/api_service.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../widgets/reel_item.dart';
 
 /* --------------------------- helpers / formatters --------------------------- */
@@ -122,11 +124,18 @@ class _FeedScreenState extends State<FeedScreen> {
       'role'    : '${u['role'] ?? ''}'.toLowerCase(),
       'email'   : '${u['email'] ?? ''}',
       'phone'   : '${u['phone'] ?? ''}',
+      'country' : '${u['country'] ?? ''}',
       'college' : '${u['college'] ?? ''}',
+      'branch'  : '${u['branch'] ?? ''}',
+      'year'    : '${u['year'] ?? ''}',
       'company' : '${u['company_name'] ?? u['company'] ?? ''}',
       'firm'    : '${u['firm_name'] ?? ''}',
       'website' : '${u['website'] ?? u['company_website'] ?? ''}',
       'avatar'  : '${u['avatar'] ?? u['avatar_url'] ?? ''}',
+      'bio'     : '${u['bio'] ?? u['description'] ?? ''}',
+      'skills'  : u['skills'] is List ? (u['skills'] as List).cast<String>() : <String>[],
+      'linkedin': '${u['linkedin'] ?? ''}',
+      'github'  : '${u['github'] ?? ''}',
     };
     return copy;
   }
@@ -224,10 +233,18 @@ class _FeedScreenState extends State<FeedScreen> {
         setState(() => _fetchingMore = true);
       }
 
+      // Get current user role for filtering
+      final auth = context.read<AuthProvider?>();
+      final currentUser = auth?.user;
+      final currentUserRole = (currentUser?.role ?? '').toLowerCase();
+      
       final res = await _api.getFeed(
         page: reset ? 1 : _page,
         limit: _limit,
         search: _selectedTag == 'All' ? null : _selectedTag,
+        uploader: (currentUserRole == 'student' || currentUserRole == 'user') 
+            ? currentUser?.id 
+            : null, // Students only see their own videos, others see all
       );
 
       if (!mounted) return;
@@ -347,7 +364,215 @@ class _FeedScreenState extends State<FeedScreen> {
   void _openUploaderProfile(Map<String, dynamic> uploader) {
     final id = '${uploader['id'] ?? ''}';
     if (id.isNotEmpty) {
-      context.push('/profile/$id');
+      // Check current user's role and implement role-based access
+      final auth = context.read<AuthProvider?>();
+      final currentUser = auth?.user;
+      final currentUserRole = (currentUser?.role ?? '').toLowerCase();
+      
+      // Only admin, hiring, investor can view profiles
+      if (currentUserRole == 'admin' || currentUserRole == 'hiring' || currentUserRole == 'investor') {
+        // Show profile modal instead of navigating to separate screen
+        _openProfileSheet(uploader);
+      } else {
+        // Students cannot view any profiles
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You cannot view user profiles')),
+        );
+        return;
+      }
+    }
+  }
+
+  Future<void> _openProfileSheet(Map<String, dynamic> profile) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(ctx).colorScheme.primary,
+                            Theme.of(ctx).colorScheme.primary.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'User Profile',
+                            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: Theme.of(ctx).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            (profile['name'] ?? 'Unknown User').toString(),
+                            style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Profile Information Cards
+                _buildProfileCard(ctx, 'Email', profile['email'], Icons.email_outlined),
+                _buildProfileCard(ctx, 'Phone', profile['phone'], Icons.phone_outlined),
+                _buildProfileCard(ctx, 'College', profile['college'], Icons.school_outlined),
+                _buildProfileCard(ctx, 'Branch', profile['branch'], Icons.engineering_outlined),
+                _buildProfileCard(ctx, 'Year', profile['year'], Icons.calendar_today_outlined),
+                
+                const SizedBox(height: 24),
+                
+                // Contact Button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => _openContactDialog(profile),
+                    icon: const Icon(Icons.message_outlined, size: 18),
+                    label: const Text('Contact'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Close Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Close'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(BuildContext ctx, String label, dynamic value, IconData icon) {
+    final txt = (value ?? '—').toString();
+    final isEmpty = txt == '—' || txt.isEmpty;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isEmpty 
+          ? Theme.of(ctx).colorScheme.surfaceContainerHighest.withOpacity(0.5)
+          : Theme.of(ctx).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isEmpty 
+            ? Theme.of(ctx).colorScheme.outline.withOpacity(0.2)
+            : Theme.of(ctx).colorScheme.outline.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: isEmpty 
+                ? Theme.of(ctx).colorScheme.surfaceContainerHighest
+                : Theme.of(ctx).colorScheme.primaryContainer,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 20,
+              color: isEmpty 
+                ? Theme.of(ctx).colorScheme.onSurfaceVariant.withOpacity(0.5)
+                : Theme.of(ctx).colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  txt,
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    color: isEmpty 
+                      ? Theme.of(ctx).colorScheme.onSurfaceVariant.withOpacity(0.6)
+                      : Theme.of(ctx).colorScheme.onSurface,
+                    fontWeight: isEmpty ? FontWeight.w400 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openContactDialog(Map<String, dynamic> profile) async {
+    final name = (profile['name'] ?? 'Unknown User').toString();
+    final email = (profile['email'] ?? '').toString();
+    final role = (profile['role'] ?? 'student').toString();
+    
+    // Navigate to contact screen with user details
+    if (mounted) {
+      context.push('/contact/${email}', extra: {
+        'userName': name,
+        'userRole': role,
+        'userEmail': email,
+      });
     }
   }
 

@@ -9,7 +9,8 @@ import '../../core/services/api_service.dart';
 import '../../core/models/user_model.dart' show User;
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String? userId; // If provided, view this user's profile instead of own profile
+  const ProfileScreen({super.key, this.userId});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -75,6 +76,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool get isInvestor => _role == 'investor';
   bool get isAdmin => _role == 'admin';
 
+  // Check if viewing own profile or another user's profile
+  bool get isViewingOwnProfile => widget.userId == null;
+  bool get isViewingOtherProfile => widget.userId != null;
+
   @override
   void initState() {
     super.initState();
@@ -119,18 +124,29 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
 
     try {
-      // seed from provider for instant UI
-      final auth = context.read<AuthProvider>();
-      if (auth.user != null) _applyUser(auth.user!, null);
+      if (isViewingOwnProfile) {
+        // seed from provider for instant UI
+        final auth = context.read<AuthProvider>();
+        if (auth.user != null) _applyUser(auth.user!, null);
 
-      // fetch fresh profile
-      final res = await _api.getProfile();
-      final data = res?['data'] ?? res;
-      final userMap = (data?['user'] ?? data) as Map<String, dynamic>?;
-      if (userMap != null) {
-        final remote = User.fromJson(userMap);
-        _applyUser(remote, userMap);
-        context.read<AuthProvider>().setUser(remote); // keep provider in sync
+        // fetch fresh profile
+        final res = await _api.getProfile();
+        final data = res?['data'] ?? res;
+        final userMap = (data?['user'] ?? data) as Map<String, dynamic>?;
+        if (userMap != null) {
+          final remote = User.fromJson(userMap);
+          _applyUser(remote, userMap);
+          context.read<AuthProvider>().setUser(remote); // keep provider in sync
+        }
+      } else {
+        // Load another user's profile
+        final res = await _api.getUserProfile(widget.userId!);
+        final data = res?['data'] ?? res;
+        final userMap = (data?['user'] ?? data) as Map<String, dynamic>?;
+        if (userMap != null) {
+          final remote = User.fromJson(userMap);
+          _applyUser(remote, userMap);
+        }
       }
       _anim.forward();
     } catch (e) {
@@ -365,7 +381,101 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     await context.read<AuthProvider>().logout();
     if (!mounted) return;
-    context.go('/login');
+    context.go('/');
+  }
+
+  Future<void> _contactUser() async {
+    if (_user == null) return;
+
+    final subjectCtrl = TextEditingController();
+    final messageCtrl = TextEditingController();
+    final contactEmailCtrl = TextEditingController();
+    final contactPhoneCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Contact ${_user!.name}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: subjectCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Subject',
+                  hintText: 'e.g., Interested in your project',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Message',
+                  hintText: 'Your message here...',
+                ),
+                maxLines: 4,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: contactEmailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Your Email (optional)',
+                  hintText: 'student@university.edu',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: contactPhoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Your Phone (optional)',
+                  hintText: '+1234567890',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return;
+
+    if (subjectCtrl.text.trim().isEmpty || messageCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Subject and message are required')),
+      );
+      return;
+    }
+
+    try {
+      await _api.contactUser(
+        _user!.id!,
+        subject: subjectCtrl.text.trim(),
+        message: messageCtrl.text.trim(),
+        contactEmail: contactEmailCtrl.text.trim().isNotEmpty ? contactEmailCtrl.text.trim() : null,
+        contactPhone: contactPhoneCtrl.text.trim().isNotEmpty ? contactPhoneCtrl.text.trim() : null,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contact request sent successfully!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send contact request: ${e.toString()}')),
+      );
+    }
   }
 
   String _prettyInitials() {
@@ -468,13 +578,32 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  tooltip: _editing ? 'Cancel' : 'Edit',
-                                  onPressed: _toggleEditing,
-                                  icon: Icon(_editing
-                                      ? Icons.close
-                                      : Icons.edit_outlined),
-                                ),
+                                if (isViewingOwnProfile)
+                                  IconButton(
+                                    tooltip: _editing ? 'Cancel' : 'Edit',
+                                    onPressed: _toggleEditing,
+                                    icon: Icon(_editing
+                                        ? Icons.close
+                                        : Icons.edit_outlined),
+                                  )
+                                else
+                                  // Show contact button for other users (admin, hiring, investor only)
+                                  Builder(builder: (context) {
+                                    final auth = context.read<AuthProvider>();
+                                    final currentUserRole = (auth.user?.role ?? '').toLowerCase();
+                                    final canContact = currentUserRole == 'admin' || 
+                                                      currentUserRole == 'hiring' || 
+                                                      currentUserRole == 'investor';
+                                    
+                                    if (canContact) {
+                                      return IconButton(
+                                        tooltip: 'Contact',
+                                        onPressed: _contactUser,
+                                        icon: const Icon(Icons.message_outlined),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  }),
                               ],
                             ),
                           ),

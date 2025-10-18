@@ -21,7 +21,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   email_validator: ^2.1.17
   google_sign_in: ^6.2.1
-  file_picker: ^6.1.1
+  file_picker: ^8.0.6+1
   image_picker: ^1.0.7
   video_player: ^2.8.2
   chewie: ^1.7.5

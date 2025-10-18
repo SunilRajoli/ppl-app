@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    debugPrint('LoginScreen: Initialized with role: ${widget.role}');
     _anim = AnimationController(duration: const Duration(milliseconds: 600), vsync: this)..forward();
     _slide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
         .animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));

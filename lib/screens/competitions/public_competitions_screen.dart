@@ -59,7 +59,12 @@ class _PublicCompetitionsScreenState extends State<PublicCompetitionsScreen> {
       _error = null;
     });
     try {
-      final res = await _api.listCompetitions();
+      // Fetch all competitions with higher limit to get more results
+      final res = await _api.listCompetitions(
+        page: 1,
+        limit: 100, // Increased limit to get more competitions
+        isActive: 'true', // Only get active competitions
+      );
       final data = res['data'] ?? res;
       final list = (data['competitions'] as List? ?? [])
           .map((e) => Competition.fromJson(e))
@@ -187,7 +192,10 @@ class _PublicCompetitionsScreenState extends State<PublicCompetitionsScreen> {
   }
 
   // TopBar helpers
-  List<NavLink> get _navLinks => const []; // mobile-only; content handled by GlobalTopBar
+  List<NavLink> get _navLinks => [
+    NavLink(href: '/', label: 'Home', type: 'route'),
+    NavLink(href: '/competitions', label: 'Competitions', type: 'route'),
+  ];
   bool get _isOnLanding => false;
 
   void _openContact() {
@@ -251,18 +259,20 @@ class _PublicCompetitionsScreenState extends State<PublicCompetitionsScreen> {
       ),
 
       // WHOLE SCREEN SCROLLABLE
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ScrollConfiguration(
-              behavior: const MaterialScrollBehavior().copyWith(
-                scrollbars: false, // hide Flutter scrollbars on web/desktop
-              ),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.zero,
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+      body: Stack(
+        children: [
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ScrollConfiguration(
+                  behavior: const MaterialScrollBehavior().copyWith(
+                    scrollbars: false, // hide Flutter scrollbars on web/desktop
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.zero,
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                     // ---------- HERO ----------
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -390,12 +400,48 @@ class _PublicCompetitionsScreenState extends State<PublicCompetitionsScreen> {
                         },
                       ),
 
-                    // ---------- FOOTER ----------
-                    const _FooterMini(),
-                  ],
+                        // ---------- FOOTER ----------
+                        const _FooterMini(),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+
+          // Auth Modal
+          if (_authModalOpen)
+            _AuthModal(
+              competition: _selectedForRegister,
+              onClose: () => setState(() {
+                _authModalOpen = false;
+                _selectedForRegister = null;
+              }),
+              onSignUp: () {
+                setState(() {
+                  _authModalOpen = false;
+                  _selectedForRegister = null;
+                });
+                context.go('/roles');
+              },
+              onLogin: () {
+                setState(() {
+                  _authModalOpen = false;
+                  _selectedForRegister = null;
+                });
+                context.go('/login');
+              },
             ),
+
+          // Details Sheet
+          if (_detailsOpen && _detailsComp != null)
+            _CompetitionDetailsSheet(
+              competition: _detailsComp!,
+              onClose: () => setState(() {
+                _detailsOpen = false;
+                _detailsComp = null;
+              }),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1316,7 +1362,7 @@ class _TimelineList extends StatelessWidget {
   }
 }
 
-/* ---------------------------- Footer (compact) ---------------------------- */
+/* ---------------------------- Footer (matches React) ---------------------------- */
 
 class _FooterMini extends StatelessWidget {
   const _FooterMini();
@@ -1324,56 +1370,54 @@ class _FooterMini extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final divider = theme.dividerColor;
     final year = DateTime.now().year;
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: divider)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.primary.withOpacity(0.8),
+          ],
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 56),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.rocket_launch, size: 22, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text('Premier Project League',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 8),
+          // CTA Section
           Text(
-            'Turning student projects into real startups.',
-            style: theme.textTheme.bodyMedium,
-          ),
-
-          const SizedBox(height: 14),
-
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              _FooterLink(label: 'Home', onTap: () => GoRouter.of(context).go('/')),
-              _FooterLink(label: 'Competitions', onTap: () => GoRouter.of(context).go('/competitions')),
-              _FooterLink(label: 'Login', onTap: () => GoRouter.of(context).go('/login')),
-              _FooterLink(label: 'Sign up', onTap: () => GoRouter.of(context).go('/register')),
-              _FooterLink(label: 'Terms', onTap: () => GoRouter.of(context).go('/terms')),
-              _FooterLink(label: 'Privacy', onTap: () => GoRouter.of(context).go('/privacy')),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          Divider(height: 1, color: divider),
-          const SizedBox(height: 12),
-
-          Text(
-            '© $year Premier Project League',
+            'Ready to join the next big challenge?',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Create a free account and start competing today.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // CTA Button
+          ElevatedButton.icon(
+            onPressed: () => GoRouter.of(context).go('/roles'),
+            icon: Icon(Icons.rocket_launch, color: theme.colorScheme.primary),
+            label: const Text('Create Account'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: theme.colorScheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              elevation: 2,
             ),
           ),
         ],
@@ -1492,6 +1536,138 @@ class _AuthRequiredSheet extends StatelessWidget {
               child: const Text('Maybe later'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/* ----------------------- Auth Modal ----------------------- */
+
+class _AuthModal extends StatelessWidget {
+  final Competition? competition;
+  final VoidCallback onClose;
+  final VoidCallback onSignUp;
+  final VoidCallback onLogin;
+
+  const _AuthModal({
+    required this.competition,
+    required this.onClose,
+    required this.onSignUp,
+    required this.onLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Material(
+      color: Colors.black.withOpacity(0.5),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: theme.dividerColor),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Sign In Required',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onClose,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Icon and message
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.rocket_launch,
+                    color: theme.colorScheme.primary,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                Text(
+                  'To register for ${competition?.title ?? "this competition"}, you need an account.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign up to participate in competitions and showcase your skills!',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Buttons
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: onSignUp,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Create Account'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: onLogin,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('I Already Have an Account'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: onClose,
+                      child: const Text('Maybe Later'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

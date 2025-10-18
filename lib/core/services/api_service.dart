@@ -20,7 +20,7 @@ class ApiService {
   })  : baseUrl = overrideBaseUrl ??
             const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'http://localhost:3000/api/v1',
+              defaultValue: 'https://ppl-2.onrender.com/api/v1',
             ),
         _client = client ?? http.Client();
 
@@ -434,8 +434,25 @@ class ApiService {
   // COMPETITIONS
   // ---------------------------
 
-  Future<dynamic> listCompetitions() async {
-    return _request('/competitions', method: 'GET');
+  Future<dynamic> listCompetitions({
+    int page = 1,
+    int limit = 50,
+    String? search,
+    bool? upcoming,
+    bool? ongoing,
+    bool? past,
+    String? isActive,
+  }) async {
+    final query = <String, dynamic>{
+      'page': '$page',
+      'limit': '$limit',
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (upcoming == true) 'upcoming': 'true',
+      if (ongoing == true) 'ongoing': 'true',
+      if (past == true) 'past': 'true',
+      if (isActive != null) 'is_active': isActive,
+    };
+    return _request('/competitions', method: 'GET', query: query);
   }
 
   Future<dynamic> getCompetition(String id) async {
@@ -690,6 +707,64 @@ class ApiService {
     }
     // mirrors the React fallback route
     return _request('/users/$userId/deactivate', method: 'PUT');
+  }
+
+  // ---------------------------
+  // USER PROFILES
+  // ---------------------------
+
+  Future<dynamic> getUserProfile(String userId) async {
+    if (userId.isEmpty) {
+      throw ApiException(message: 'User id is required');
+    }
+    return _request('/users/$userId', method: 'GET');
+  }
+
+  Future<dynamic> getUserVideos(String userId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    if (userId.isEmpty) {
+      throw ApiException(message: 'User id is required');
+    }
+    final query = <String, dynamic>{
+      'page': '$page',
+      'limit': '$limit',
+    };
+    return _request('/users/$userId/videos', method: 'GET', query: query);
+  }
+
+  Future<dynamic> contactUser(String userId, {
+    required String message,
+    required String subject,
+    String? submissionId,
+    String? contactEmail,
+    String? contactPhone,
+  }) async {
+    if (userId.isEmpty) {
+      throw ApiException(message: 'User id is required');
+    }
+    final body = {
+      'recipient_id': userId,
+      'subject': subject,
+      'message': message,
+      if (submissionId != null && submissionId.isNotEmpty) 'submission_id': submissionId,
+      if (contactEmail != null && contactEmail.isNotEmpty) 'contact_email': contactEmail,
+      if (contactPhone != null && contactPhone.isNotEmpty) 'contact_phone': contactPhone,
+    };
+    return _request('/contact', method: 'POST', body: body);
+  }
+
+  Future<dynamic> getContactHistory({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final query = <String, dynamic>{
+      'box': 'sent', // Get sent contacts (contact history)
+      'page': '$page',
+      'limit': '$limit',
+    };
+    return _request('/contact', method: 'GET', query: query);
   }
 }
 

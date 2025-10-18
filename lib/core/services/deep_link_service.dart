@@ -53,6 +53,16 @@ class DeepLinkService {
       }
     }
 
+    // Handle OAuth callback
+    if (path == '/oauth-callback' || path.endsWith('/oauth-callback')) {
+      final token = params['token'];
+      final provider = params['provider'];
+      if (token != null && provider != null) {
+        context.go('/oauth-callback?token=$token&provider=$provider');
+        return;
+      }
+    }
+
     // Add more deep link handlers as needed
     debugPrint('⚠️  Unhandled deep link path: $path');
   }

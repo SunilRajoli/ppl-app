@@ -279,453 +279,587 @@ class _RoleListScreenState extends State<RoleListScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final role = widget.role.toLowerCase();
-    final label = '${role[0].toUpperCase()}${role.substring(1)} • Directory';
-    final border = theme.colorScheme.outline.withOpacity(0.25);
+    final label = '${role[0].toUpperCase()}${role.substring(1)} Directory';
+    final border = theme.colorScheme.outline.withOpacity(0.15);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: Text(label),
+        elevation: 0,
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          label,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetch,
+          ),
+        ],
       ),
       body: SafeArea(
-        child: ScrollConfiguration(
-          behavior: const _NoGlowBehavior(),
-          child: RefreshIndicator(
-            onRefresh: _fetch,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
-                FadeTransition(
-                  opacity: _fade,
-                  child: SlideTransition(
-                    position: _slide,
-                    child: Column(
-                      children: [
-                        // Header
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: border),
-                                ),
-                                child: Icon(Icons.groups_2_outlined,
-                                    color: theme.colorScheme.primary),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(label,
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        )),
-                                    Text('Browse and manage $role users',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+        child: RefreshIndicator(
+          onRefresh: _fetch,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(20),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    FadeTransition(
+                      opacity: _fade,
+                      child: SlideTransition(
+                        position: _slide,
+                        child: Column(
+                          children: [
+                            // Stats Header
+                            _buildStatsHeader(theme, role),
+
+                            const SizedBox(height: 20),
+
+                            // Search Section
+                            _buildSearchSection(theme, role),
+
+                            // Loading and Error States
+                            if (_loading) _buildLoadingState(theme, role),
+                            if (_error != null) _buildErrorState(theme),
+
+                            const SizedBox(height: 20),
+
+                            // Invite Section (admins only)
+                            if ((_me?['role'] ?? '').toString().toLowerCase() == 'admin' && role == 'admin')
+                              _buildInviteSection(theme),
+
+                            if (role == 'admin') const SizedBox(height: 20),
+
+                            // User List
+                            _buildUserList(theme, role),
+                          ],
                         ),
-
-                        const SizedBox(height: 12),
-
-                        // Search + Count
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: border),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: border),
-                                    ),
-                                    child: Text(role,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        )),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: border),
-                                    ),
-                                    child: Text('${_filtered.length} total',
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        )),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                onChanged: _onSearchChanged,
-                                decoration: InputDecoration(
-                                  hintText: 'Search name, email, college/company…',
-                                  prefixIcon: const Icon(Icons.search),
-                                  isDense: false,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                              if (_loading)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Row(
-                                    children: [
-                                      const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text('Loading $role users…',
-                                          style: theme.textTheme.bodySmall),
-                                    ],
-                                  ),
-                                ),
-                              if (_error != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.error_outline, color: Colors.red.shade300),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(_error!,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: Colors.red.shade300,
-                                            )),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        onPressed: _fetch,
-                                        icon: const Icon(Icons.refresh),
-                                        label: const Text('Retry'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // Invite (admins only)
-                        if (( _me?['role'] ?? '' ).toString().toLowerCase() == 'admin' && role == 'admin')
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Invite Admin',
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: _inviteNameCtrl,
-                                  textCapitalization: TextCapitalization.words,
-                                  decoration: InputDecoration(
-                                    hintText: 'Full name',
-                                    prefixIcon: const Icon(Icons.person_outline),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                TextField(
-                                  controller: _inviteEmailCtrl,
-                                  keyboardType: TextInputType.emailAddress,
-                                  onChanged: (_) => setState(() => _inviteMsg = null),
-                                  decoration: InputDecoration(
-                                    hintText: 'Email address',
-                                    errorText: (_inviteMsg != null &&
-                                            _inviteMsg!.toLowerCase().contains('email'))
-                                        ? _inviteMsg
-                                        : null,
-                                    prefixIcon: const Icon(Icons.mail_outline),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                FilledButton(
-                                  onPressed: _inviting ? null : _inviteAdmin,
-                                  child: Text(_inviting ? 'Sending…' : 'Send Invite'),
-                                ),
-                                if (_inviteMsg != null &&
-                                    !_inviteMsg!.toLowerCase().contains('email'))
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Text(
-                                      _inviteMsg!,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: _inviteMsg!.toLowerCase().contains('error') ||
-                                                _inviteMsg!.toLowerCase().contains('fail')
-                                            ? Colors.red.shade300
-                                            : Colors.green.shade400,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-
-                        if (role == 'admin') const SizedBox(height: 12),
-
-                        // List
-                        Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: border),
-                          ),
-                          child: _filtered.isEmpty
-                              ? Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Text(
-                                    _q.isEmpty ? 'No users found.' : 'No results for “$_q”.',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                )
-                              : Column(
-                                  children: List.generate(_filtered.length, (i) {
-                                    final u = _filtered[i];
-                                    final id = (u['id'] ?? u['_id'] ?? '$i').toString();
-                                    final name = (u['name'] ?? '—').toString();
-                                    final email = (u['email'] ?? '—').toString();
-                                    final meta = (u['college'] ?? u['company_name'] ?? u['firm_name'] ?? '').toString();
-                                    final verified = (u['is_verified'] == true) || (u['verified'] == true);
-                                    final rank = (u['__rank'] ?? (i + 1)).toString();
-                                    final open = (u['__open'] == true);
-                                    final initials = _initialsOf(name);
-
-                                    final meRole = (_me?['role'] ?? '').toString().toLowerCase();
-                                    final meId = (_me?['id'] ?? _me?['_id'] ?? '').toString();
-                                    final canDelete = meRole == 'admin' && meId.isNotEmpty && meId != id;
-
-                                    final entries = <MapEntry<String, String>>[];
-                                    u.forEach((key, value) {
-                                      final k = key.toString();
-                                      if (k.startsWith('__')) return;
-                                      if (_isSensitive(k)) return;
-                                      entries.add(MapEntry(k, value?.toString() ?? ''));
-                                    });
-                                    entries.sort((a, b) => a.key.compareTo(b.key));
-
-                                    return KeyedSubtree(
-                                      key: ValueKey('user-$id'),
-                                      child: Column(
-                                        children: [
-                                          InkWell(
-                                            onTap: () => setState(() => u['__open'] = !open),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    width: 36,
-                                                    height: 36,
-                                                    alignment: Alignment.center,
-                                                    decoration: BoxDecoration(
-                                                      color: theme.colorScheme.surfaceContainerHighest,
-                                                      borderRadius: BorderRadius.circular(10),
-                                                      border: Border.all(color: border),
-                                                    ),
-                                                    child: Text(rank,
-                                                        style: theme.textTheme.labelLarge
-                                                            ?.copyWith(fontWeight: FontWeight.w800)),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Container(
-                                                    width: 40,
-                                                    height: 40,
-                                                    alignment: Alignment.center,
-                                                    decoration: BoxDecoration(
-                                                      color: theme.colorScheme.surfaceContainerHighest,
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(color: border),
-                                                    ),
-                                                    child: Text(initials,
-                                                        style: theme.textTheme.labelLarge
-                                                            ?.copyWith(fontWeight: FontWeight.w800)),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(
-                                                          name,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: theme.textTheme.bodyLarge?.copyWith(
-                                                            fontWeight: FontWeight.w700,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 2),
-                                                        Text(
-                                                          email,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: theme.textTheme.bodySmall,
-                                                        ),
-                                                        if (meta.isNotEmpty)
-                                                          Text(
-                                                            meta,
-                                                            overflow: TextOverflow.ellipsis,
-                                                            style: theme.textTheme.labelSmall?.copyWith(
-                                                              color: theme.colorScheme.onSurfaceVariant,
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  // Status chip
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                      color: (verified ? Colors.green : Colors.amber).withOpacity(.15),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(
-                                                        color: (verified ? Colors.green : Colors.amber).withOpacity(.3),
-                                                      ),
-                                                    ),
-                                                    child: Text(
-                                                      verified ? 'Verified' : 'Pending',
-                                                      style: const TextStyle(fontSize: 11),
-                                                    ),
-                                                  ),
-
-                                                  // Delete (admin & not-self)
-                                                  if (canDelete) ...[
-                                                    const SizedBox(width: 6),
-                                                    OutlinedButton(
-                                                      onPressed: (_deleting && _deletingId == id)
-                                                          ? null
-                                                          : () => _deleteUser(id, name),
-                                                      style: OutlinedButton.styleFrom(
-                                                        side: BorderSide(color: Colors.red.withOpacity(.3)),
-                                                        backgroundColor: Colors.red.withOpacity(.08),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                        minimumSize: const Size(0, 0),
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                      ),
-                                                      child: Text(
-                                                        (_deleting && _deletingId == id) ? 'Deleting…' : 'Delete',
-                                                        style: const TextStyle(fontSize: 12, color: Color(0xFFFF6B6B)),
-                                                      ),
-                                                    ),
-                                                  ],
-
-                                                  const SizedBox(width: 6),
-                                                  Icon(
-                                                    open ? Icons.expand_less : Icons.expand_more,
-                                                    size: 20,
-                                                    color: theme.colorScheme.onSurfaceVariant,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                          if (open)
-                                            Padding(
-                                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: theme.colorScheme.surfaceContainerHighest,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(color: border),
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text('Details',
-                                                        style: theme.textTheme.titleSmall?.copyWith(
-                                                            fontWeight: FontWeight.w700)),
-                                                    const SizedBox(height: 8),
-                                                    ...entries.map((e) => Padding(
-                                                          padding: const EdgeInsets.symmetric(vertical: 2),
-                                                          child: Row(
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                            children: [
-                                                              SizedBox(
-                                                                width: 140,
-                                                                child: Text(
-                                                                  _prettyKey(e.key),
-                                                                  style: theme.textTheme.labelSmall?.copyWith(
-                                                                    color: theme.colorScheme.onSurfaceVariant,
-                                                                    fontWeight: FontWeight.w600,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              const SizedBox(width: 8),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  e.value.isEmpty ? '—' : e.value,
-                                                                  style: theme.textTheme.bodySmall,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        )),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          if (i != _filtered.length - 1)
-                                            Divider(height: 1, color: border.withOpacity(.48)),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                ),
-                        ),
-                      ],
+                      ),
                     ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Component methods for better organization
+  Widget _buildStatsHeader(ThemeData theme, String role) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [theme.colorScheme.primary.withOpacity(0.1), theme.colorScheme.primary.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.groups_2_outlined, color: theme.colorScheme.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${role[0].toUpperCase()}${role.substring(1)} Directory',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Manage and view all $role users',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_filtered.length} users',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchSection(ThemeData theme, String role) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.search, color: theme.colorScheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Search Users',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search by name, email, college, or company...',
+              prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceContainerHighest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            ),
+          ),
+          if (_q.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.filter_list, color: theme.colorScheme.onSurfaceVariant, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  '${_filtered.length} results for "$_q"',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(ThemeData theme, String role) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 12),
+          Text('Loading $role users...', style: theme.textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade400),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(_error!, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.red.shade400)),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: _fetch,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInviteSection(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Invite New Admin', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          
+          // Email field - full width
+          TextField(
+            controller: _inviteEmailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              hintText: 'Email address',
+              prefixIcon: const Icon(Icons.mail_outline),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Name field - full width
+          TextField(
+            controller: _inviteNameCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              hintText: 'Full name',
+              prefixIcon: const Icon(Icons.person_outline),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Send button - full width
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _inviting ? null : _inviteAdmin,
+              child: Text(_inviting ? 'Sending...' : 'Send Invite'),
+            ),
+          ),
+          
+          if (_inviteMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _inviteMsg!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _inviteMsg!.toLowerCase().contains('error') ? Colors.red.shade400 : Colors.green.shade400,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserList(ThemeData theme, String role) {
+    if (_filtered.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.people_outline, size: 48, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(
+              _q.isEmpty ? 'No users found' : 'No results for "$_q"',
+              style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _q.isEmpty ? 'No $role users have been registered yet' : 'Try adjusting your search terms',
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: _filtered.asMap().entries.map((entry) {
+        final index = entry.key;
+        final user = entry.value;
+        return _buildUserCard(theme, user, index + 1);
+      }).toList(),
+    );
+  }
+
+  Widget _buildUserCard(ThemeData theme, Map<String, dynamic> user, int number) {
+    final id = (user['id'] ?? user['_id'] ?? '').toString();
+    final name = (user['name'] ?? '—').toString();
+    final email = (user['email'] ?? '—').toString();
+    final meta = (user['college'] ?? user['company_name'] ?? user['firm_name'] ?? '').toString();
+    final verified = (user['is_verified'] == true) || (user['verified'] == true);
+    final open = (user['__open'] == true);
+
+    final meRole = (_me?['role'] ?? '').toString().toLowerCase();
+    final meId = (_me?['id'] ?? _me?['_id'] ?? '').toString();
+    final canDelete = meRole == 'admin' && meId.isNotEmpty && meId != id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: open 
+            ? theme.colorScheme.primary.withOpacity(0.3)
+            : theme.colorScheme.outline.withOpacity(0.1),
+          width: open ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => user['__open'] = !open),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Number badge
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$number',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // User info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Status badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: verified 
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                verified ? 'V' : 'P',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: verified ? Colors.green.shade700 : Colors.orange.shade700,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          email,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (meta.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            meta,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  
+                  // Actions
+                  Row(
+                    children: [
+                      if (canDelete) ...[
+                        IconButton(
+                          onPressed: () => _deleteUser(id, name),
+                          icon: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.red.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Icon(
+                        open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open) _buildUserDetails(theme, user),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserDetails(ThemeData theme, Map<String, dynamic> user) {
+    final entries = <MapEntry<String, String>>[];
+    user.forEach((key, value) {
+      final k = key.toString();
+      if (k.startsWith('__')) return;
+      if (_isSensitive(k)) return;
+      entries.add(MapEntry(k, value?.toString() ?? ''));
+    });
+    entries.sort((a, b) => a.key.compareTo(b.key));
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.colorScheme.outline.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'User Details',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...entries.map((e) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: Text(
+                      _prettyKey(e.key),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      e.value.isEmpty ? '—' : e.value,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
         ),
       ),
     );

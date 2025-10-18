@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../screens/splash_screen.dart';
+import '../../components/app_initializer.dart';
 import '../../screens/landing_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
@@ -19,15 +19,19 @@ import '../../screens/admin/role_list_screen.dart';
 import '../../screens/competitions/competition_register_screen.dart';
 import '../../screens/competitions/competition_submit_screen.dart';
 import '../../screens/main/main_nav_screen.dart' as main_nav;
+import '../../screens/main/profile_screen.dart';
+import '../../screens/contact/contact_screen.dart';
+import '../../screens/contacts/contact_history_screen.dart';
 import '../../screens/competitions/my_submissions_screen.dart';
 import '../../screens/auth/email_verification_notice_screen.dart';
 import '../../screens/auth/verify_email_screen.dart';
+import '../../screens/auth/oauth_callback_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/splash',
     routes: <RouteBase>[
-      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+      GoRoute(path: '/splash', builder: (context, state) => const AppInitializer()),
       GoRoute(path: '/', builder: (context, state) => const LandingScreen()),
       GoRoute(path: '/roles', builder: (context, state) => const RoleSelectionScreen()),
       GoRoute(
@@ -41,7 +45,15 @@ class AppRouter {
         path: '/register',
         builder: (context, state) {
           final extra = state.extra is Map<String, dynamic> ? state.extra as Map<String, dynamic> : null;
-          return RegisterScreen(role: extra?['role'] as String?);
+          final role = extra?['role'] as String?;
+          
+          // Prevent admin users from accessing register screen
+          if (role == 'admin') {
+            // Redirect admin users to login instead
+            return LoginScreen(role: role);
+          }
+          
+          return RegisterScreen(role: role);
         },
       ),
       // ✅ NEW: Email verification notice (after registration)
@@ -60,6 +72,12 @@ class AppRouter {
           final token = state.uri.queryParameters['token'];
           return VerifyEmailScreen(token: token);
         },
+      ),
+
+      // ✅ NEW: OAuth callback endpoint (consumes ?token= & ?provider=)
+      GoRoute(
+        path: '/oauth-callback',
+        builder: (context, state) => const OAuthCallbackScreen(),
       ),
       GoRoute(path: '/forgot-password', builder: (context, state) => const ForgotPasswordScreen()),
       GoRoute(path: '/reset-password', builder: (context, state) => const ResetPasswordScreen()),
@@ -81,6 +99,15 @@ class AppRouter {
 
       // Public competitions index
       GoRoute(path: '/competitions', builder: (context, state) => const PublicCompetitionsScreen()),
+      
+      // Courses page
+      GoRoute(path: '/courses', builder: (context, state) => const LandingScreen(embedded: true)), // Placeholder for courses
+      
+      // Contact page
+      GoRoute(path: '/contact', builder: (context, state) => const LandingScreen(embedded: true)), // Placeholder for contact
+      
+      // About page
+      GoRoute(path: '/about', builder: (context, state) => const LandingScreen(embedded: true)), // Placeholder for about
 
       // ---- Specific competition routes FIRST ----
       GoRoute(path: '/competition/create', builder: (context, state) => const CreateCompetitionScreen()),
@@ -144,6 +171,88 @@ class AppRouter {
         path: '/admin/roles/:role',
         builder: (context, state) => RoleListScreen(role: state.pathParameters['role'] ?? 'student'),
       ),
+      
+      // Profile routes
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile/:id',
+        builder: (context, state) => ProfileScreen(
+          userId: state.pathParameters['id'],
+        ),
+      ),
+      
+      // Contact route
+      GoRoute(
+        path: '/contact/:id',
+        builder: (context, state) {
+          final extra = state.extra is Map<String, dynamic> 
+              ? state.extra as Map<String, dynamic> 
+              : <String, dynamic>{};
+          return ContactScreen(
+            userId: state.pathParameters['id']!,
+            userName: extra['userName'] as String?,
+            userRole: extra['userRole'] as String?,
+          );
+        },
+      ),
+
+
+      // Contact history route
+      GoRoute(
+        path: '/contact-history',
+        builder: (context, state) => const ContactHistoryScreen(),
+      ),
+      
+      // 404 - Catch all route
+      GoRoute(
+        path: '/:path(.*)',
+        builder: (context, state) => const _NotFoundScreen(),
+      ),
     ],
   );
+}
+
+class _NotFoundScreen extends StatelessWidget {
+  const _NotFoundScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Page Not Found'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '404 - Page Not Found',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'The page you are looking for does not exist.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go('/'),
+              child: const Text('Go Home'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

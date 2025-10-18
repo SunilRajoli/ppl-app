@@ -64,8 +64,15 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
   void _onContinue() {
     if (_selectedRole == null) return;
-    // Pass the chosen role into /login. Your login screen can read it via GoRouter's 'extra'.
-    context.push('/login', extra: {'role': _selectedRole});
+    
+    // Admin users go to login, others go to register
+    if (_selectedRole == 'admin') {
+      debugPrint('RoleSelectionScreen: Navigating to /login with role: $_selectedRole');
+      context.push('/login', extra: {'role': _selectedRole});
+    } else {
+      debugPrint('RoleSelectionScreen: Navigating to /register with role: $_selectedRole');
+      context.push('/register', extra: {'role': _selectedRole});
+    }
   }
 
   @override
@@ -109,53 +116,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                 ),
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Header
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.auto_awesome,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Choose your role',
-                                  style: theme.textTheme.headlineMedium),
-                              Text("We'll tailor the experience for you",
-                                  style: theme.textTheme.bodySmall),
-                            ],
-                          ),
-                        ],
+                      Text(
+                        'Choose your role',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "We'll tailor the experience for you",
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        ),
+                        textAlign: TextAlign.center,
                       ),
 
                       const SizedBox(height: 24),
-
-                      // Info Card
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            'Pick a role to get relevant actions, dashboards, and quick-start tips. '
-                            'You can switch later in your profile settings.',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
 
                       // Roles (4)
                       _buildRoleCard(
@@ -166,7 +148,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                         description:
                             'Showcase projects, join competitions & learn by doing.',
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       _buildRoleCard(
                         theme: theme,
@@ -176,7 +158,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                         description:
                             'Discover candidates, post roles, and evaluate project work.',
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       _buildRoleCard(
                         theme: theme,
@@ -186,7 +168,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                         description:
                             'Track top teams, review pitches, and connect for deals.',
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       _buildRoleCard(
                         theme: theme,
@@ -197,13 +179,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                             'Create & manage competitions, teams, and results.',
                       ),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
                       // Continue Button
                       ElevatedButton(
                         onPressed: _selectedRole != null ? _onContinue : null,
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: Text(
                           _selectedRole != null
@@ -250,12 +232,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
         onTap: () => setState(() => _selectedRole = role),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: isSelected
                       ? theme.colorScheme.primary.withOpacity(0.18)
@@ -267,10 +249,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                   color: isSelected
                       ? theme.colorScheme.primary
                       : theme.iconTheme.color,
-                  size: 28,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,7 +262,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                         Expanded(
                           child: Text(
                             title,
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: isSelected ? theme.colorScheme.primary : null,
                               fontWeight: FontWeight.bold,
                             ),

@@ -16,6 +16,9 @@ import './profile_screen.dart';
 // ✅ Real Admin Hub screen
 import '../admin/admin_hub_screen.dart';
 
+// ✅ Contact History screen
+import '../contacts/contact_history_screen.dart';
+
 enum _MenuAction { changePassword, logout }
 
 class MainNavScreen extends StatefulWidget {
@@ -109,8 +112,8 @@ class _MainNavScreenState extends State<MainNavScreen> {
         await auth.logout(); // clear tokens/session etc.
 
         if (!mounted) return;
-        // ✅ GoRouter stack reset to login
-        context.go('/login');
+        // ✅ GoRouter stack reset to landing page
+        context.go('/');
         break;
     }
   }
@@ -122,12 +125,16 @@ class _MainNavScreenState extends State<MainNavScreen> {
     final isAdmin = (auth.user?.role ?? '').toLowerCase() == 'admin';
 
     // Pages list depends on role
+    final userRole = (auth.user?.role ?? '').toLowerCase();
+    final isHiringOrInvestor = userRole == 'hiring' || userRole == 'investor';
+    
     final pages = <Widget>[
       const LandingScreen(embedded: true),
       const CompetitionsScreen(),
       const FeedScreen(),
       const ProfileScreen(),
       if (isAdmin) const AdminHubScreen(),
+      if (isHiringOrInvestor) const ContactHistoryScreen(),
     ];
 
     // If the current index is out of range (role changed), clamp & jump.
@@ -164,34 +171,24 @@ class _MainNavScreenState extends State<MainNavScreen> {
           selectedIcon: Icon(Icons.admin_panel_settings),
           label: 'Admin Hub',
         ),
+      if (isHiringOrInvestor)
+        const NavigationDestination(
+          icon: Icon(Icons.mail_outline),
+          selectedIcon: Icon(Icons.mail),
+          label: 'My Contacts',
+        ),
     ];
 
     final initials = _safeInitials(auth.user?.name);
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  'P',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('PPL'),
-          ],
+        title: Text(
+          'PPL',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
         ),
         actions: [
           // ⬇️ Replaced notifications bell with the same toggle as GlobalTopBar

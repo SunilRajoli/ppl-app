@@ -29,6 +29,7 @@ class _LandingScreenState extends State<LandingScreen>
   bool _contactOpen = false;
   bool _termsOpen = false;
   bool _privacyOpen = false;
+  bool _refundOpen = false;
 
   @override
   void initState() {
@@ -81,7 +82,7 @@ class _LandingScreenState extends State<LandingScreen>
     final isAuthed = auth.isAuthenticated;
     final isAdmin = (auth.user?.role ?? '').toLowerCase() == 'admin';
     if (!isAuthed) return '/competitions';
-    return isAdmin ? '/admin?tab=competitions' : '/main?tab=competitions';
+    return isAdmin ? '/admin?tab=competition' : '/main?tab=competition';
   }
 
   void _closeAllModals() {
@@ -89,6 +90,7 @@ class _LandingScreenState extends State<LandingScreen>
       _contactOpen = false;
       _termsOpen = false;
       _privacyOpen = false;
+      _refundOpen = false;
     });
   }
 
@@ -106,7 +108,7 @@ class _LandingScreenState extends State<LandingScreen>
       NavLink(href: '#why-ppl', label: 'Why PPL', type: 'scroll'),
     ];
 
-    final anyModalOpen = _contactOpen || _termsOpen || _privacyOpen;
+    final anyModalOpen = _contactOpen || _termsOpen || _privacyOpen || _refundOpen;
 
     return Scaffold(
       appBar: widget.embedded
@@ -136,6 +138,7 @@ class _LandingScreenState extends State<LandingScreen>
                     _HeroSection(
                       exploreTo: exploreTo,
                       showGetStarted: !auth.isAuthenticated,
+                      isAuthenticated: auth.isAuthenticated,
                     ),
                     _AboutSection(key: aboutKey),
                     _HowItWorksSection(key: howItWorksKey),
@@ -148,6 +151,7 @@ class _LandingScreenState extends State<LandingScreen>
                       onAnchorTap: _scrollToById,
                       onOpenTerms: () => setState(() => _termsOpen = true),
                       onOpenPrivacy: () => setState(() => _privacyOpen = true),
+                      onOpenRefund: () => setState(() => _refundOpen = true),
                     ),
                   ],
                 ),
@@ -169,7 +173,9 @@ class _LandingScreenState extends State<LandingScreen>
                           ? _ContactModal(onClose: _closeAllModals, key: const ValueKey('contact'))
                           : _termsOpen
                               ? TermsModalSheet(onClose: _closeAllModals, key: const ValueKey('terms'))
-                              : PrivacyModalSheet(onClose: _closeAllModals, key: const ValueKey('privacy')),
+                              : _privacyOpen
+                                  ? PrivacyModalSheet(onClose: _closeAllModals, key: const ValueKey('privacy'))
+                                  : RefundModalSheet(onClose: _closeAllModals, key: const ValueKey('refund')),
                     ),
                   ),
                 ),
@@ -187,10 +193,12 @@ class _LandingScreenState extends State<LandingScreen>
 class _HeroSection extends StatelessWidget {
   final String exploreTo;
   final bool showGetStarted;
+  final bool isAuthenticated;
 
   const _HeroSection({
     required this.exploreTo,
     required this.showGetStarted,
+    required this.isAuthenticated,
   });
 
   @override
@@ -208,53 +216,79 @@ class _HeroSection extends StatelessWidget {
           ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Where Student Projects Meet Real Investors',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              height: 1.12,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Compete. Learn. Pitch to investors.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.textTheme.titleMedium?.color?.withOpacity(0.85),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => context.go(exploreTo),
-                  icon: const Icon(Icons.explore),
-                  label: const Text('Explore Competitions'),
-                ),
-              ),
-              if (showGetStarted)
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.go('/roles'),
-                    icon: const Icon(Icons.rocket_launch),
-                    label: const Text('Get Started'),
+      child: isAuthenticated 
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Where Student Projects Meet Real Investors',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.12,
                   ),
                 ),
+                const SizedBox(height: 10),
+                Text(
+                  'Transform college projects into successful startups. Compete, learn, and pitch to real investors through PPL – the ultimate startup league for students.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.textTheme.titleMedium?.color?.withOpacity(0.85),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Where Student Projects Meet Real Investors',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  height: 1.12,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Transform college projects into successful startups. Compete, learn, and pitch to real investors through PPL – the ultimate startup league for students.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.textTheme.titleMedium?.color?.withOpacity(0.85),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.go(exploreTo),
+                      icon: const Icon(Icons.explore),
+                      label: const Text('Explore Competitions'),
+                    ),
+                  ),
+                  if (showGetStarted)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.go('/roles'),
+                        icon: const Icon(Icons.rocket_launch),
+                        label: const Text('Get Started'),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -448,13 +482,13 @@ class _CourseSection extends StatelessWidget {
     final theme = Theme.of(context);
     final topics = const [
       'Ideation & Validation',
-      'Business Model',
+      'Business Model Basics',
       'MVP & Prototyping',
       'Market Research',
-      'Financial Basics',
-      'Pitch & Storytelling',
-      'Legal Essentials',
-      'Investor Prep',
+      'Financials & Funding 101',
+      'Pitching & Storytelling',
+      'Legal & Startup Essentials',
+      'Demo & Investor Prep',
     ];
 
     return Container(
@@ -464,7 +498,7 @@ class _CourseSection extends StatelessWidget {
           Text('PPL Startup Course', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 10),
           Text(
-            'An 8-week program to build a validated idea, MVP, and a strong pitch.',
+            'An 8-week program to build a validated business model and a pitch deck.',
             style: theme.textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
@@ -499,18 +533,18 @@ class _WhyPplSection extends StatelessWidget {
         'icon': Icons.school,
         'title': 'For Students',
         'desc':
-            'Get mentorship, a real competition environment, and investor exposure.'
+            'Opportunity to convert projects into real startups with investor backing.'
       },
       {
         'icon': Icons.apartment,
         'title': 'For Colleges',
         'desc':
-            'Showcase innovation and build strong industry connections for your campus.'
+            'Showcase innovation and attract industry partnerships to your campus.'
       },
       {
         'icon': Icons.work,
         'title': 'For Investors',
-        'desc': 'Early access to ambitious student teams and fresh ideas.'
+        'desc': 'Early access to high-potential student startups with fresh ideas.'
       },
     ];
 
@@ -685,12 +719,14 @@ class _Footer extends StatelessWidget {
   final void Function(String id) onAnchorTap;
   final VoidCallback onOpenTerms;
   final VoidCallback onOpenPrivacy;
+  final VoidCallback onOpenRefund;
 
   const _Footer({
     required this.onContactTap,
     required this.onAnchorTap,
     required this.onOpenTerms,
     required this.onOpenPrivacy,
+    required this.onOpenRefund,
   });
 
   @override
@@ -705,143 +741,498 @@ class _Footer extends StatelessWidget {
         border: Border(top: BorderSide(color: divider)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 64),
         child: Column(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.rocket_launch, size: 26, color: theme.colorScheme.primary),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Premier Project League',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+            // Responsive footer layout
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 800) {
+                  // Desktop layout - 4 columns
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _FooterBrandSection(theme: theme),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Turning student projects into real startups with competitions, course, and Investor Day.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _SocialIconButton(
-                      icon: const FaIcon(FontAwesomeIcons.linkedinIn, size: 18),
-                      onTap: () => _launchUri('https://linkedin.com'),
-                    ),
-                    _SocialIconButton(
-                      icon: const FaIcon(FontAwesomeIcons.github, size: 18),
-                      onTap: () => _launchUri('https://github.com'),
-                    ),
-                    _SocialIconButton(
-                      icon: const FaIcon(FontAwesomeIcons.instagram, size: 18),
-                      onTap: () => _launchUri('https://instagram.com'),
-                    ),
-                    _SocialIconButton(
-                      icon: const FaIcon(FontAwesomeIcons.youtube, size: 18),
-                      onTap: () => _launchUri('https://youtube.com'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'QUICK LINKS',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    letterSpacing: 0.8,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _QuickLinkPill(
-                      icon: Icons.info_outline,
-                      label: 'About',
-                      onTap: () => onAnchorTap('about'),
-                    ),
-                    _QuickLinkPill(
-                      icon: Icons.schema_outlined,
-                      label: 'How It Works',
-                      onTap: () => onAnchorTap('how-it-works'),
-                    ),
-                    _QuickLinkPill(
-                      icon: Icons.menu_book_outlined,
-                      label: 'Course',
-                      onTap: () => onAnchorTap('course'),
-                    ),
-                    _QuickLinkPill(
-                      icon: Icons.thumb_up_alt_outlined,
-                      label: 'Why PPL',
-                      onTap: () => onAnchorTap('why-ppl'),
-                    ),
-                    _QuickLinkPill(
-                      icon: Icons.emoji_events_outlined,
-                      label: 'Competitions',
-                      onTap: () => GoRouter.of(context).go('/competitions'),
-                    ),
-                    _QuickLinkPill(
-                      icon: Icons.rocket_launch_outlined,
-                      label: 'Get Started',
-                      onTap: () => GoRouter.of(context).go('/roles'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _FooterTextButton('Terms', onOpenTerms),
-                    _FooterTextButton('Privacy', onOpenPrivacy),
-                    _FooterTextButton('Contact', onContactTap), // added beside Privacy
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.mail_outline,
-                            size: 18,
-                            color: theme.colorScheme.onSurface.withOpacity(0.7)),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () => _launchUri('mailto:contact@ppl.com'),
-                          child: Text(
-                            'contact@ppl.com',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.primary,
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _FooterQuickLinksSection(
+                          theme: theme,
+                          onAnchorTap: onAnchorTap,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _FooterLegalSection(
+                          theme: theme,
+                          onOpenTerms: onOpenTerms,
+                          onOpenPrivacy: onOpenPrivacy,
+                          onOpenRefund: onOpenRefund,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _FooterNewsletterSection(theme: theme),
+                      ),
+                    ],
+                  );
+                } else {
+                  // Mobile layout - stacked columns
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FooterBrandSection(theme: theme),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FooterQuickLinksSection(
+                              theme: theme,
+                              onAnchorTap: onAnchorTap,
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _FooterLegalSection(
+                              theme: theme,
+                              onOpenTerms: onOpenTerms,
+                              onOpenPrivacy: onOpenPrivacy,
+                              onOpenRefund: onOpenRefund,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _FooterNewsletterSection(theme: theme),
+                    ],
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 40),
+            // Divider
+            Divider(color: divider.withOpacity(0.6)),
+            const SizedBox(height: 24),
+            // Bottom bar - responsive layout
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 600) {
+                  // Desktop layout - horizontal
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '© $year Premier Project League',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                            ),
+                          ),
+                          Text(
+                            'All rights reserved.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: onOpenTerms,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Terms',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ' | ',
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.4),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: onOpenPrivacy,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Privacy',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ' | ',
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.4),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: onContactTap,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Contact',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                } else {
+                  // Mobile layout - vertical
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        '© $year Premier Project League',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+                      ),
+                      Text(
+                        'All rights reserved.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: onOpenTerms,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Terms',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ' | ',
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.4),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: onOpenPrivacy,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Privacy',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ' | ',
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.4),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: onContactTap,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: Text(
+                              'Contact',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
-            Container(
-              height: 1,
-              color: divider,
-              margin: const EdgeInsets.symmetric(vertical: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterBrandSection extends StatelessWidget {
+  final ThemeData theme;
+  const _FooterBrandSection({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.rocket_launch,
+              color: theme.colorScheme.primary,
+              size: 28,
             ),
-            Center(
+            const SizedBox(width: 8),
+            Flexible(
               child: Text(
-                '© $year Premier Project League',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+                'Premier Project League',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
                 ),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Turning student projects into real startups through competitions, mentorship, and investor connections.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          children: [
+            _SocialIconButton(
+              icon: const FaIcon(FontAwesomeIcons.linkedinIn, size: 18),
+              onTap: () => _launchUri('https://linkedin.com'),
+            ),
+            _SocialIconButton(
+              icon: const FaIcon(FontAwesomeIcons.instagram, size: 18),
+              onTap: () => _launchUri('https://instagram.com'),
+            ),
+            _SocialIconButton(
+              icon: const FaIcon(FontAwesomeIcons.twitter, size: 18),
+              onTap: () => _launchUri('https://twitter.com'),
+            ),
+            _SocialIconButton(
+              icon: const FaIcon(FontAwesomeIcons.youtube, size: 18),
+              onTap: () => _launchUri('https://youtube.com'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _FooterQuickLinksSection extends StatelessWidget {
+  final ThemeData theme;
+  final Function(String) onAnchorTap;
+  const _FooterQuickLinksSection({
+    required this.theme,
+    required this.onAnchorTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'QUICK LINKS',
+          style: theme.textTheme.bodySmall?.copyWith(
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _FooterLink(
+          label: 'About',
+          onTap: () => onAnchorTap('about'),
+        ),
+        _FooterLink(
+          label: 'How It Works',
+          onTap: () => onAnchorTap('how-it-works'),
+        ),
+        _FooterLink(
+          label: 'Course',
+          onTap: () => onAnchorTap('course'),
+        ),
+        _FooterLink(
+          label: 'Why PPL',
+          onTap: () => onAnchorTap('why-ppl'),
+        ),
+        _FooterLink(
+          label: 'Competitions',
+          onTap: () => GoRouter.of(context).go('/competitions'),
+        ),
+      ],
+    );
+  }
+}
+
+class _FooterLegalSection extends StatelessWidget {
+  final ThemeData theme;
+  final VoidCallback onOpenTerms;
+  final VoidCallback onOpenPrivacy;
+  final VoidCallback onOpenRefund;
+  const _FooterLegalSection({
+    required this.theme,
+    required this.onOpenTerms,
+    required this.onOpenPrivacy,
+    required this.onOpenRefund,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'LEGAL',
+          style: theme.textTheme.bodySmall?.copyWith(
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _FooterLink(
+          label: 'Terms & Conditions',
+          onTap: onOpenTerms,
+        ),
+        _FooterLink(
+          label: 'Privacy Policy',
+          onTap: onOpenPrivacy,
+        ),
+        _FooterLink(
+          label: 'Refund & Cancellation',
+          onTap: onOpenRefund,
+        ),
+      ],
+    );
+  }
+}
+
+class _FooterNewsletterSection extends StatelessWidget {
+  final ThemeData theme;
+  const _FooterNewsletterSection({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'STAY IN THE LOOP',
+          style: theme.textTheme.bodySmall?.copyWith(
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Get updates on new competitions and Investor Day announcements.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'you@example.com',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: const Size(60, 32),
+              ),
+              child: const Text('Join'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(
+              Icons.mail,
+              size: 16,
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: GestureDetector(
+                onTap: () => _launchUri('mailto:support@theppl.com'),
+                child: Text(
+                  'support@theppl.com',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _FooterLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _FooterLink({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.9),
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.transparent,
+          ),
         ),
       ),
     );
@@ -1460,4 +1851,191 @@ String _formatToday() {
     'July','August','September','October','November','December'
   ];
   return '${months[now.month - 1]} ${now.day}, ${now.year}';
+}
+
+/* ------------------------- REFUND MODAL ----------------------- */
+
+class RefundModalSheet extends StatelessWidget {
+  final VoidCallback onClose;
+  const RefundModalSheet({required this.onClose, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final year = DateTime.now().year;
+    final lastUpdated = _formatToday();
+
+    return Container(
+      key: const ValueKey('refund-sheet'),
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 800),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.money_off, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Refund & Cancellation Policy',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: theme.dividerColor),
+
+          // BODY — scrollable and height-limited to avoid overflow on small screens
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 500),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Refund & Cancellation Policy',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Last updated: $lastUpdated',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    _buildSection(
+                      theme,
+                      '1. Refund Eligibility',
+                      [
+                        'Refunds are available for course fees within 7 days of purchase.',
+                        'Competition entry fees are non-refundable once the competition has started.',
+                        'Refunds are not available for completed courses or competitions.',
+                        'Processing fees may apply to refunds.',
+                      ],
+                    ),
+                    
+                    _buildSection(
+                      theme,
+                      '2. Refund Process',
+                      [
+                        'Submit a refund request through our contact form or email support@theppl.com.',
+                        'Include your order number and reason for the refund request.',
+                        'Refunds will be processed within 5-7 business days.',
+                        'Refunds will be issued to the original payment method.',
+                      ],
+                    ),
+                    
+                    _buildSection(
+                      theme,
+                      '3. Cancellation Policy',
+                      [
+                        'Course registrations can be cancelled up to 24 hours before the start date.',
+                        'Competition registrations can be cancelled up to 48 hours before the submission deadline.',
+                        'Cancellations must be requested through our official channels.',
+                        'Partial refunds may apply based on the timing of cancellation.',
+                      ],
+                    ),
+                    
+                    _buildSection(
+                      theme,
+                      '4. Non-Refundable Items',
+                      [
+                        'Digital certificates and badges.',
+                        'Completed course materials and resources.',
+                        'Competition submissions and evaluations.',
+                        'Premium features and add-ons.',
+                      ],
+                    ),
+                    
+                    _buildSection(
+                      theme,
+                      '5. Contact Information',
+                      [
+                        'For refund requests: support@theppl.com',
+                        'For general inquiries: contact@theppl.com',
+                        'Response time: 24-48 hours during business days.',
+                        'Include your user ID and order details for faster processing.',
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info, color: theme.colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'All refund requests are subject to review and approval by our team.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSection(ThemeData theme, String title, List<String> items) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• ', style: theme.textTheme.bodyMedium),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
 }

@@ -215,6 +215,7 @@
 // lib/core/providers/auth_provider.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -336,13 +337,19 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Logout API error: $e');
     } finally {
+      debugPrint('AuthProvider: Clearing authentication state');
       _user = null;
       _token = null;
       _isAuthenticated = false;
       _mustChangePassword = false;
 
       await _storage.clearToken();
+      
+      // Mark that this is a logout so we skip splash screen on next launch
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('ppl-from-logout', true);
 
+      debugPrint('AuthProvider: Authentication state cleared, notifying listeners');
       notifyListeners();
     }
   }
@@ -411,6 +418,22 @@ class AuthProvider with ChangeNotifier {
     try {
       await _storage.saveUser(user.toJson());
     } catch (_) {}
+    notifyListeners();
+  }
+
+  // OAuth helper method
+  Future<void> setTokenAndUser(String token, Map<String, dynamic> userJson) async {
+    _token = token;
+    _user = User.fromJson(userJson);
+    _isAuthenticated = true;
+    _mustChangePassword = _user?.forcePasswordChange ?? false;
+
+    try {
+      await _storage.saveToken(token);
+      await _storage.saveUser(userJson);
+    } catch (e) {
+      debugPrint('Error saving OAuth data: $e');
+    }
     notifyListeners();
   }
 }

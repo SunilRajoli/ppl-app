@@ -808,7 +808,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 280),
                               child: DropdownButtonFormField<String>(
-                                value: (d['status'] ?? 'submitted') as String,
+                                value: _STATUS_OPTIONS.contains(d['status']) ? d['status'] as String : 'submitted',
                                 decoration: const InputDecoration(labelText: 'Status'),
                                 items: _STATUS_OPTIONS
                                     .map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' '))))
@@ -885,71 +885,175 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: 16, right: 16, top: 8,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.9,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Participant Profile',
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 56, height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                      border: Border.all(color: Theme.of(ctx).colorScheme.outline.withOpacity(.25)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(ctx).colorScheme.primary,
+                            Theme.of(ctx).colorScheme.primary.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.person, color: Colors.white, size: 28),
                     ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.person_outline),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Participant Details',
+                            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: Theme.of(ctx).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            (profile['name'] ?? 'Unknown User').toString(),
+                            style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Profile Information Cards
+                _buildProfileCard(ctx, 'Email', profile['email'], Icons.email_outlined),
+                _buildProfileCard(ctx, 'Phone', profile['phone'], Icons.phone_outlined),
+                _buildProfileCard(ctx, 'College', profile['college'], Icons.school_outlined),
+                _buildProfileCard(ctx, 'Branch', profile['branch'], Icons.engineering_outlined),
+                _buildProfileCard(ctx, 'Year', profile['year'], Icons.calendar_today_outlined),
+                
+                const SizedBox(height: 24),
+                
+                // Contact Button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => _openContactDialog(profile),
+                    icon: const Icon(Icons.message_outlined, size: 18),
+                    label: const Text('Contact'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      (profile['name'] ?? '—').toString(),
-                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Close Button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text('Close'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _kv('Email', profile['email']),
-              _kv('Phone', profile['phone']),
-              _kv('College', profile['college']),
-              _kv('Branch', profile['branch']),
-              _kv('Year', profile['year']),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: [
-                  if ((profile['email'] ?? '').toString().isNotEmpty)
-                    FilledButton.icon(
-                      onPressed: () => _launchUrl('mailto:${profile['email']}'),
-                      icon: const Icon(Icons.email_outlined),
-                      label: const Text('Contact via Email'),
-                    ),
-                  if ((profile['phone'] ?? '').toString().isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: () => _launchUrl('tel:${profile['phone']}'),
-                      icon: const Icon(Icons.call_outlined),
-                      label: const Text('Call'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Center(child: TextButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close), label: const Text('Close'))),
-              const SizedBox(height: 8),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard(BuildContext ctx, String label, dynamic value, IconData icon) {
+    final txt = (value ?? '—').toString();
+    final isEmpty = txt == '—' || txt.isEmpty;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isEmpty 
+          ? Theme.of(ctx).colorScheme.surfaceContainerHighest.withOpacity(0.5)
+          : Theme.of(ctx).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isEmpty 
+            ? Theme.of(ctx).colorScheme.outline.withOpacity(0.2)
+            : Theme.of(ctx).colorScheme.outline.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: isEmpty 
+                ? Theme.of(ctx).colorScheme.surfaceContainerHighest
+                : Theme.of(ctx).colorScheme.primaryContainer,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 20,
+              color: isEmpty 
+                ? Theme.of(ctx).colorScheme.onSurfaceVariant.withOpacity(0.5)
+                : Theme.of(ctx).colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  txt,
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    color: isEmpty 
+                      ? Theme.of(ctx).colorScheme.onSurfaceVariant.withOpacity(0.6)
+                      : Theme.of(ctx).colorScheme.onSurface,
+                    fontWeight: isEmpty ? FontWeight.w400 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -980,6 +1084,21 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cannot open: $url')));
+    }
+  }
+
+  Future<void> _openContactDialog(Map<String, dynamic> profile) async {
+    final name = (profile['name'] ?? 'Unknown User').toString();
+    final email = (profile['email'] ?? '').toString();
+    final role = 'student'; // Default role for participants
+    
+    // Navigate to contact screen with user details
+    if (mounted) {
+      context.push('/contact/${email}', extra: {
+        'userName': name,
+        'userRole': role,
+        'userEmail': email,
+      });
     }
   }
 }

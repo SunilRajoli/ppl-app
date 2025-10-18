@@ -63,116 +63,108 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.purple.shade600,
-              Colors.blue.shade600,
-              Colors.indigo.shade700,
-            ],
-          ),
-        ),
-        child: Center(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'P',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+      backgroundColor: theme.colorScheme.background,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo - matches React version exactly
+                Container(
+                  width: 96, // w-24 = 96px
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1), // bg-primary/10
+                    borderRadius: BorderRadius.circular(48), // rounded-full
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 48, // w-12 = 48px
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.2), // bg-primary/20
+                        borderRadius: BorderRadius.circular(12), // rounded-lg
+                      ),
+                      child: Center(
+                        child: Text(
+                          'P',
+                          style: TextStyle(
+                            fontSize: 24, // text-2xl
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Title
-                  const Text(
-                    'PPL Platform',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                ),
+                
+                const SizedBox(height: 32), // mb-8
+                
+                // Title - matches React version
+                Text(
+                  'PPL Platform',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    fontSize: 36, // text-4xl
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onBackground,
                   ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Subtitle
-                  Text(
-                    'Premier Project League',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
+                ),
+                
+                const SizedBox(height: 8), // mb-2
+                
+                // Subtitle - matches React version
+                Text(
+                  'Student Projects League',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontSize: 18, // text-lg
+                    color: theme.colorScheme.onBackground.withOpacity(0.7),
                   ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Loading indicator
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+                
+                const SizedBox(height: 32), // mb-8
+                
+                // Loading indicator - matches React version
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 24, // h-6 w-6
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2, // border-b-2
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Loading...',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 48),
-                  
-                  // Tagline
-                  Text(
-                    'Empowering Students, Connecting Opportunities',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.6),
                     ),
+                    const SizedBox(width: 8), // space-x-2
+                    Text(
+                      'Loading...',
+                      style: TextStyle(
+                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 48), // mt-12
+                
+                // Tagline - matches React version
+                Text(
+                  'Where Student Projects Meet Real Investors',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 14, // text-sm
+                    color: theme.colorScheme.onBackground.withOpacity(0.6),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

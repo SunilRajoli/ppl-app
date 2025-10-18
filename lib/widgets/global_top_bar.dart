@@ -46,6 +46,9 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
     final auth = context.watch<AuthProvider>();
     final isAuthed = auth.isAuthenticated;
     final isAdmin = (auth.user?.role ?? '').toLowerCase() == 'admin';
+    
+    // Debug: Print authentication state
+    debugPrint('GlobalTopBar: isAuthed=$isAuthed, user=${auth.user?.name}, showRegister=$showRegister');
 
     return AppBar(
       elevation: 0,
@@ -60,30 +63,17 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
           color: AppColors.borderOf(context),
         ),
       ),
-      leadingWidth: 140,
+      leadingWidth: 80,
       leading: InkWell(
         onTap: () => context.go(_homeHref(isAuthed, isAdmin)),
-        child: Row(
-          children: [
-            const SizedBox(width: 12),
-            SizedBox(
-              height: 26,
-              width: 26,
-              child: Image.asset(
-                'assets/logo.png', // ensure declared in pubspec.yaml
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) =>
-                    Icon(Icons.star_rounded, color: theme.colorScheme.primary),
-              ),
+        child: Center(
+          child: Text(
+            brand,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
             ),
-            const SizedBox(width: 8),
-            Text(
-              brand,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
 
@@ -142,62 +132,74 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       builder: (ctx) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                height: 4,
-                width: 44,
-                margin: const EdgeInsets.only(bottom: 8),
+                height: 3,
+                width: 32,
+                margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              ListTile(
-                title: const Text('About'),
+              // Navigation links - dynamic based on navLinks
+              ...navLinks.map((link) => _MobileMenuLink(
+                label: link.label,
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  if (isOnLanding && onScrollTo != null) {
-                    onScrollTo('about');
-                  } else {
-                    GoRouter.of(context).go('/#about');
+                  if (link.type == 'route') {
+                    GoRouter.of(context).go(link.href);
+                  } else if (link.type == 'scroll' && onScrollTo != null) {
+                    onScrollTo?.call(link.href.replaceFirst('#', ''));
                   }
                 },
-              ),
-              ListTile(
-                title: const Text('Why PPL'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  if (isOnLanding && onScrollTo != null) {
-                    onScrollTo('why-ppl');
-                  } else {
-                    GoRouter.of(context).go('/#why-ppl');
-                  }
-                },
-              ),
-              ListTile(
-                title: const Text('Contact'),
+              )),
+              _MobileMenuLink(
+                label: 'Contact',
                 onTap: () {
                   Navigator.of(ctx).pop();
                   Future.delayed(const Duration(milliseconds: 120), onOpenContact);
                 },
               ),
-              const Divider(),
-              ListTile(
-                title: const Text('Login'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  GoRouter.of(context).go('/login');
-                },
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              // Auth buttons - smaller
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    GoRouter.of(context).go('/login');
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Login'),
+                ),
               ),
-              ListTile(
-                title: const Text('Sign Up'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  GoRouter.of(context).go('/roles');
-                },
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    GoRouter.of(context).go('/roles');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Sign Up'),
+                ),
               ),
             ],
           ),
@@ -206,3 +208,32 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 }
+
+class _MobileMenuLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _MobileMenuLink({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

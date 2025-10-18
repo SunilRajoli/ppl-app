@@ -28,6 +28,7 @@
 	        <key>CFBundleURLSchemes</key>
 	        <array>
 	            <string>eph</string>
+	            <string>ppl</string>
 	        </array>
 	    </dict>
 	</array>
@@ -54,5 +55,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- ✅ File picker permissions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to photo library to upload images and videos for competitions.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera to capture photos and videos for competitions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone to record audio for video submissions.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>This app needs access to documents to upload files for competitions.</string>
 </dict>
 </plist>
